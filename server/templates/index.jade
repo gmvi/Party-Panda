@@ -1,0 +1,32 @@
+doctype html
+html(lang = "en")
+    script(src="bower/jquery/jquery.min.js")
+    script(type='text/javascript').
+      $(function()
+      { $('#up').click(function()
+        { $.post('/vote/up');
+          $('#up').addClass('select');
+          $('#down').removeClass('select');
+        });
+        $('#down').click(function()
+        { $.post('/vote/down');
+          $('#down').addClass('select');
+          $('#up').removeClass('select');
+        });
+      });
+    title Party Panda
+    link(href="/styles/index.css" rel="stylesheet")
+  body
+    div.header.center
+      span#party
+      span#panda
+      span#title Party Panda
+    div.center
+      if (vote=="up")
+        div#up.select
+      else
+        div#up
+      if (vote=="down")
+        div#down.select
+      else
+        div#down

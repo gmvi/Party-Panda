@@ -1,0 +1,7 @@
+{ "name": "Party Panda",
+  "private": true,
+  "dependencies":
+  { "jquery": "1.10.x",
+    "bootstrap": "3.0.x"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Party-Panda",
+  "version": "0.0.1",
+  "author": "George Matter VI <george.matter.vi@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MadhATTER6/Party-Panda"
+  },
+  "dependencies": {
+    "bower": "1.2.x",
+    "express": "3.4.x",
+    "jade": "1.0.x",
+    "ws": "0.4.x",
+
+    "request": "2.27.x"
+  },
+  "engines": {
+    "node": "0.10.x",
+    "npm": "1.3.x"
+  },
+  "scripts": {
+    "postinstall": "./node_modules/bower/bin/bower install"
+  }
+}

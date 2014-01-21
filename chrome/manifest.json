@@ -1,0 +1,22 @@
+{
+  "manifest_version": 2,
+  "name": "Party Panda",
+  "description": "Control a Pandora station by goup consensus",
+  "version": "0.0.0",
+  
+  "permissions":
+  [ "tabs", "http://www.google.com/*", "storage"
+  ],
+
+  "browser_action":
+  { "default_icon": "party_hat.png",
+    "default_popup": "popup.html"
+  },
+
+  "content_scripts":
+  [ { "matches": [ "http://www.pandora.com/", "http://www.pandora.com/*" ],
+      "js": [ "controls.js" ]
+    }
+
+  ]
+}
