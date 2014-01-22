@@ -28,30 +28,39 @@ function getSong()
 /* SERVER COMMUNICATION */
 
 var ws;
-var song;
+
+var songChanged = function ()
+{ var songElement = document.querySelector('.playerBarSong');
+  var song = songElement.text;
+  return(function ()
+  { if (songElement.text == song)
+      return false;
+    else
+      song = songElement.text;
+      return true;
+  });
+}();
 var loopId;
-function setUpConnection()
+function setUpConnection ()
 { console.log('connecting to server');
   if (ws)
   { ws.close();
-    //clearInterval(loopId);
+    clearInterval(loopId);
   }
   chrome.storage.local.get('host', function(items)
   { ws = new WebSocket('ws://'+items.host);
-    ws.onopen = function()
-    { ws.send("TweetFighter");
+    ws.onopen = function ()
+    { loopId = setInterval(function ()
+      { if (songChanged())
+        { console.log('track change');
+          ws.send(JSON.stringify({type:"update"}));
+        }
+      }, 100);
     };
     ws.onmessage = function (message)
     { if (message.data == "up") thumbUp();
       if (message.data == "down") thumbDown();
     };
-    // loopId = setInterval(function()
-    // { if (song != getSong())
-    //   { song = getSong();
-    //     ws.send("reset");
-    //     console.log("reset");
-    //   }
-    // }, 500);
   });
 }
 

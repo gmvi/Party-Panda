@@ -2,10 +2,10 @@
   "manifest_version": 2,
   "name": "Party Panda",
   "description": "Control a Pandora station by goup consensus",
-  "version": "0.0.0",
+  "version": "0.0.1",
   
   "permissions":
-  [ "tabs", "http://www.google.com/*", "storage"
+  [ "tabs", "storage"
   ],
 
   "browser_action":
