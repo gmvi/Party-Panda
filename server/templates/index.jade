@@ -1,19 +1,7 @@
 doctype html
 html(lang = "en")
     script(src="bower/jquery/jquery.min.js")
-    script(type='text/javascript').
-      $(function()
-      { $('#up').click(function()
-        { $.post('/vote/up');
-          $('#up').addClass('select');
-          $('#down').removeClass('select');
-        });
-        $('#down').click(function()
-        { $.post('/vote/down');
-          $('#down').addClass('select');
-          $('#up').removeClass('select');
-        });
-      });
+    script(type='text/javascript' src="/scripts/index.js")
     title Party Panda
     link(href="/styles/index.css" rel="stylesheet")
   body
@@ -22,11 +10,9 @@ html(lang = "en")
       span#panda
       span#title Party Panda
     div.center
-      if (vote=="up")
-        div#up.select
-      else
-        div#up
-      if (vote=="down")
-        div#down.select
-      else
-        div#down
+      input(id="down", type="radio", name="thumb", checked=(vote=="down"))
+      label(for="down")
+        span.preload
+      input(id="up", type="radio", name="thumb", checked=(vote=="up"))
+      label(for="up")
+        span.preload

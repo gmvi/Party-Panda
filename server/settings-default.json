@@ -1,6 +1,9 @@
 {
   "sessionSecret" : "",
-  "appToken" : "",
-  "appSecret" : "",
-  "debugPort" : 5001
+  "codeDayAppToken" : "",
+  "codeDayAppSecret" : "",
+  "debugPort" : 5001,
+  "DEFAULT_MIN" : 1,
+  "LOGIN" : "session",
+  "RESTRICT_CHROME_EXTENSION" : ""
 }

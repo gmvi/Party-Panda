@@ -1,0 +1,67 @@
+<html>
+  <head>
+    <title>Test Page</title>
+    <script src="controls.js"></script>
+    <script src="popup.js"></script>
+    <script src="test.js"></script>
+    <style>
+    #playbackControl
+    {
+    }
+    .thumbDownButton
+    .thumbUpButton
+    { width: 10px;
+      height: 10px;
+    }
+    .relative
+    { position: relative;
+      width: 700px;
+    }
+    .right
+    { width: 50%;
+      position: absolute;
+      right: 0;
+    }
+    .left
+    { width: 50%;
+      position: absolute;
+      left: 0;
+    }
+    .relative .right div
+    { height: 25px;
+    }
+    span.em
+    { width: 1em;
+    }
+    </style>
+  </head>
+  <body>
+    <h1>TEST PAGE FOR TESTING</h1>
+    <p id="playbackControl">
+      <input type="radio" name="thumb" class="thumbDownButton">
+      <label for="thumbDownButton">down<label>
+      <span class="em"></span>
+      <input type="radio" name="thumb" class="thumbUpButton">
+      <label for="thumbUpButton">up</label>
+    </p>
+    <p>
+      host: <input id="host"/>
+      <button id="submit">link</button>
+    </p>
+
+    <div id="playerBar" class="relative">
+      <div class="nowplayinginput left">
+        <input class="enter-responsive playerBarSongInput">
+        <input class="enter-responsive playerBarArtistInput">
+        <input class="enter-responsive playerBarAlbumInput">
+      </div>
+      <div class="nowplaying right">
+        <div class="info">
+          <div class="playerBarSong"></div>
+          <div class="playerBarArtist"></div>
+          <div class="playerBarAlbum"></div>
+        </div>
+      </div>
+    </p>
+  </body>
+</html>

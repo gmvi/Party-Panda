@@ -6,56 +6,81 @@ var fs = require('fs'),
     util = require('util'),
     http = require('http'),
     jade = require('jade'),
-    express = require('express');
+    express = require('express'),
+    fibrous = require('fibrous');
 MemoryStore = express.session.MemoryStore;
 
-
+// LOAD SETTINGS
+var settings;
 if (fs.existsSync(__dirname + "/settings.json"))
-{ var settings = JSON.parse(fs.readFileSync(__dirname + "/settings.json"));
+{ settings = JSON.parse(fs.readFileSync(__dirname + "/settings.json"));
 }
 else
-{ console.info("using default settings file");
-  var settings = JSON.parse(fs.readFileSync(__dirname + "/settings-default.json"));
+{ console.info("Warning: using default settings file");
+  settings = JSON.parse(fs.readFileSync(__dirname + "/settings-default.json"));
 }
 
-function parse(message)
-{ try
-  { return JSON.parse(message);
+// DATABASE CONTROLLER
+database = new function Database()
+{ upvotes = {};
+  downvotes = {};
+  this.settings = settings;
+  this.storeVote = function storeVote(unique, vote)
+  { if (vote == "down")
+    { downvotes[unique] = true;
+      delete upvotes[unique];
+    }
+    else if (vote == "up")
+    { upvotes[unique] = true;
+      delete downvotes[unique];
+    }
   }
-  catch (SyntaxError)
-  { return message;
+  this.getVote = function getVote(unique)
+  { if (unique in upvotes) return "up";
+    else if (unique in downvotes) return "down";
+    else return;
   }
-}
-
-// state
-upvotes = {};
-downvotes = {};
-MIN = 1;
-getVote = function()
-{ numUp = Object.keys(upvotes).length;
-  numDown = Object.keys(downvotes).length;
-  total = numUp + numDown;
-  console.log("total: "+ total);
-  if (total < MIN) return;
-  if (numUp / total >= .6) return "up";
-  if (numUp / total <= .3)
+  this.resetVotes = function resetVotes()
   { upvotes = {};
     downvotes = {};
-    return "down";
+  }
+  this.getConsensus = function getConsensus()
+  { numUp = Object.keys(upvotes).length;
+    numDown = Object.keys(downvotes).length;
+    total = numUp + numDown;
+    console.log("total votes: "+ total);
+    if (total < settings.DEFAULT_MIN) return;
+    else if (numUp / total >= .6) return "up";
+    else if (numUp / total <= .3)
+    { return "down";
+    }
+  }
+}();
+
+// 
+function registerVote(session, vote)
+{ if (session.token)
+  { database.storeVote(session.token, vote);
+    consensus = database.getConsensus();
+    console.log("consensus: "+consensus);
+    if (consensus)
+    { console.log("consensus truthy");
+      extensionWS.send("rating:"+consensus);
+    }
   }
 }
 
-/* server and express app setup*/
 
+// SERVER AND EXPRESS SETUP
 var app = new express();
 var server = http.createServer(app);
-var wss = new ws.Server({server: server});
+var wsServer = new ws.Server({server: server});
 
 var cookieParser = new express.cookieParser(settings.sessionSecret);
+var sessionstore = new MemoryStore();
 var sessionParser = new express.session({ key: "express.sid",
                                           // secret: settings.sessionSecret,
-                                          store: new MemoryStore() });
-
+                                          store: sessionstore });
 //app.use(express.logger());
 app.use(cookieParser);
 app.use(sessionParser);
@@ -67,73 +92,143 @@ app.use('/assets', express.static(__dirname + '/assets')); // images etc
 app.use('/bower', express.static(__dirname + '/bower_components')); // bower components)
 
 
-// app endpoints
+// APP ENDPOINTS
 app.get('/', function (req, res)
-{ if (req.session.token)
-  { vote = "";
-    if (req.session.token in upvotes) vote = "up";
-    if (req.session.token in downvotes) vote = "down";
+{ function send_page(req, res)
+  { vote = database.getVote(req.session.token);
     res.send(jade.renderFile(__dirname + "/templates/index.jade", {"vote": vote}));
   }
-  else
-  { ret = encodeURIComponent("http://"+req.headers.host+"/login");
-    res.redirect('http://codeday.org/oauth?token='+settings.appToken+'&return='+ret);
+  if (req.session.token)
+  { send_page(req, res);
+  }
+  else;
+  { // TODO: redo with plugins
+    if (settings.LOGIN == "session")
+    { req.session.token = req.session.id;
+      req.session.save();
+      send_page(req, res);
+    }
+    else if (settings.LOGIN == "codeday")
+    { ret = encodeURIComponent("http://"+req.headers.host+"/login");
+      res.redirect('http://codeday.org/oauth?token='+settings.codeDatappToken+'&return='+ret);
+    }
+    else
+      res.error(503, "Invalid LOGIN");
   }
 });
 app.get('/login', function (req, res)
-{ if (req.query.code)
-    req.session.token = req.query.code;
+{ // TODO: verify code by accessing user's name on codeday.org
+  if (req.query.code)
+  { req.session.token = req.query.code;
+    req.session.save();
+  }
+  console.log("logging in");
   res.redirect('/');
 });
+// API in place of websocket interface just in case
 app.post('/vote/down', function (req, res)
-{ if (req.session.token)
-  { downvotes[req.session.token] = true;
-    delete upvotes[req.session.token];
-  }
-  vote = getVote();
-  console.log('vote: '+ vote);
-  if (vote) mainWS.send(vote);
+{ registerVote(req.session, 'down');
   res.send(200);
 });
 app.post('/vote/up', function (req, res)
-{ if (req.session.token)
-  { upvotes[req.session.token] = true;
-    delete downvotes[req.session.token];
-  }
-  vote = getVote();
-  console.log('vote: '+ vote);
-  if (vote) mainWS.send(vote);
+{ registerVote(req.session, 'up');
   res.send(200);
 });
 
-//websocket logic
-
-var mainWS;
-wss.on('connection', function(ws) {
-  if (ws.upgradeReq.headers.origin == "http://www.pandora.com")
-  { mainWS && mainWS.terminate();
-    mainWS = ws;
-    console.log("got connection from extension");
-    ws.on('message', function(message) {
-      message = parse(message);
-      if (message.type == "reset")
-      { upvotes = {};
-        downvotest = {};
-      }
-      else
-        console.log("extraneous message from extension: "+message);
-    });
+// WEBSOCKET LOGIC
+function parse(message)
+{ var originalMessage = message;
+  var type;
+  var data;
+  if (1 + message.indexOf(":"))
+  { message = message.split(":");
+    try
+    { message[1] = JSON.parse(message[1]);
+    }
+    catch (SyntaxError) { }
+    type = message[0];
+    data = message[1];
   }
   else
-  { ws.on('message', function(message)
-    { message = parse(message);
-      if (message.type == "vote")
-      {
+  { type = "message";
+    data = message;
+  }
+  return { type: type,
+           data: data,
+           originalMessage: originalMessage
+         };
+}
+
+var dummyWS = (
+{ send : function dummysend(message)
+  { // maybe reevaluate in a bit
+    clients.send("reset:");
+  }
+});
+var extensionWS;
+function Clients()
+{ self = {};
+  this.add = function add(ws)
+  { self[ws.upgradeReq.headers['sec-websocket-key']] = ws;
+  }
+  this.remove = function remove(ws)
+  { delete self[ws.upgradeReq.headers['sec-websocket-key']];
+  }
+  this.broadcast = function broadcast(message)
+  { for (key in self) self[key].send(message);
+  }
+}
+var clients = new Clients();
+
+function is_connection_from_extension(origin)
+{ if (origin == "http://www.pandora.com") return true;
+  origin = origin.split("//");
+  return ( origin[0] == "chrome-extension:" &&
+           ! ( settings.RESTRICT_CHROME_EXTENSION && origin[1] !=  settings.RESTRICT_CHROME_EXTENSION )
+         );
+}
+
+wsServer.on('connection', function(ws) {
+  if (is_connection_from_extension(ws.upgradeReq.headers.origin)) // extension
+  { console.log("got connection from extension");
+    ws.on('message', function(message) {
+      message = parse(message);
+      if (message.type == "update")
+      { database.resetVotes();
+        clients.broadcast(message.originalMessage);
       }
       else
-        console.log("extraneous message from client: "+message);
+        console.log("extraneous message from extension: " + JSON.stringify(message));
     });
+    if (extensionWS) extensionWS.terminate();
+    extensionWS = ws;
+    database.resetVotes();
+  }
+  else // client
+  { fibrous.run(function() // attatch session to socket
+    { cookieParser.sync(ws.upgradeReq, null);
+      var sessionID = ws.upgradeReq.signedCookies['express.sid'];
+      session = sessionstore.sync.load(sessionID);
+      ws.session = session;
+    });
+    ws.on('message', function(message)
+    { message = parse(message);
+      if (message.type == "vote")
+      { registerVote(ws.session, message.data)
+      }
+      // else if (message == "test")
+      // { ws.send("session:"+JSON.stringify(ws.session));
+      // }
+      else
+        console.log("extraneous message from client: "+JSON.stringify(message));
+    });
+    ws.on('close', function()
+    { clients.remove(ws);
+    });
+    // store websocket for broadcasting to it.
+    clients.add(ws);
   }
 });
 
+// START SERVER
 server.listen(process.env.PORT || settings.debugPort);

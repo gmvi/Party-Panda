@@ -8,7 +8,10 @@
   [ "tabs", "storage"
   ],
 
-  "browser_action":
+  "background": { "scripts": ["background.js"], 
+                  "pages"  : ["test.html"] },
+
+  "page_action":
   { "default_icon": "party_hat.png",
     "default_popup": "popup.html"
   },

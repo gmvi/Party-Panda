@@ -1,33 +1,39 @@
 #up, #down
+{ display:none;
+}
+input[type=radio] + label
 { width: 300px;
   height: 300px;
   border: none;
   display: inline-block;
 }
-#up
-{ margin-bottom: 56px;
-  background-size: 100% auto;
-  background-image: url("/assets/thumbs_up.png");
-}
-#up.select
-{ background-image: url("/assets/thumbs_up_select.png");
-}
-#down
-{ margin-top: 56px;
+label[for=down]
+{ margin-top: 30px;
+  margin-right: 50px;
   background-size: 100% auto;
   background-image: url("/assets/thumbs_down.png");
 }
-#down.select
+#down:checked + label[for=down],
+#down + label[for=down] > .preload
 { background-image: url("/assets/thumbs_down_select.png");
+}
+label[for=up]
+{ margin-bottom: 30px;
+  background-size: 100% auto;
+  background-image: url("/assets/thumbs_up.png");
+}
+#up:checked + label[for=up],
+#up + label[for=up] > .preload
+{ background-image: url("/assets/thumbs_up_select.png");
 }
 .center
 { margin-right: auto;
   margin-left: auto;
-  width: 604px;
+  width: 650px;
 }
 .header
 { height: 140px;
-  margin-bottom: 20px;
+  margin-bottom: 50px;
   position: relative;
 }
 #party
@@ -36,7 +42,7 @@
   position: absolute;
   background-image: url('/assets/party_hat.png');
   background-size: 100% auto;
-  left: 40px;
+  left: 39px;
   z-index: 1;
 }
 #panda

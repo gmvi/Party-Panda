@@ -31,7 +31,7 @@ var ws;
 
 var songChanged = function ()
 { var songElement = document.querySelector('.playerBarSong');
-  var song = songElement.text;
+  var song = (songElement && songElement.text) || "";
   return(function ()
   { if (songElement.text == song)
       return false;
@@ -41,6 +41,27 @@ var songChanged = function ()
   });
 }();
 var loopId;
+var websocket_onopen = function ()
+{ loopId = setInterval(function ()
+  { if (songChanged())
+    { console.log('track change');
+      ws.send("update:{}");
+    }
+  }, 100);
+};
+function parse(message)
+{ var i = message.indexOf(':');
+  if (i+1)
+    return message.split(':');
+  return ["message", message];
+}
+var websocket_onmessage = function (message)
+{ var parsed = parse(message.data);
+  if (parsed[0] == "rating")
+  { if (parsed[1] == "up") thumbUp();
+    if (parsed[1] == "down") thumbDown();
+  }
+}
 function setUpConnection ()
 { console.log('connecting to server');
   if (ws)
@@ -49,18 +70,8 @@ function setUpConnection ()
   }
   chrome.storage.local.get('host', function(items)
   { ws = new WebSocket('ws://'+items.host);
-    ws.onopen = function ()
-    { loopId = setInterval(function ()
-      { if (songChanged())
-        { console.log('track change');
-          ws.send(JSON.stringify({type:"update"}));
-        }
-      }, 100);
-    };
-    ws.onmessage = function (message)
-    { if (message.data == "up") thumbUp();
-      if (message.data == "down") thumbDown();
-    };
+    ws.onopen = websocket_onopen;
+    ws.onmessage = websocket_onmessage;
   });
 }
 
