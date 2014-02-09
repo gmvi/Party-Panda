@@ -1,9 +1,7 @@
 {
-  "sessionSecret" : "",
-  "codeDayAppToken" : "",
-  "codeDayAppSecret" : "",
+  "sessionSecret" : "You Should Really Change This",
   "debugPort" : 5001,
   "DEFAULT_MIN" : 1,
-  "LOGIN" : "session",
+  "Usersystem Plugin" : "session",
   "RESTRICT_CHROME_EXTENSION" : ""
 }

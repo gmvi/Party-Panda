@@ -25,6 +25,10 @@ $(function()
     { up.checked = false;
       down.checked = false;
     }
+    else if (message.type == "reset")
+    { up.checked = false;
+      down.checked = false;
+    }
     else console.log(message);
   }
   up.onclick = function()

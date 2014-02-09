@@ -7,21 +7,27 @@ var fs = require('fs'),
     http = require('http'),
     jade = require('jade'),
     express = require('express'),
-    fibrous = require('fibrous');
-MemoryStore = express.session.MemoryStore;
+    fibrous = require('fibrous'),
+    PluginLoader = require('./PluginLoader.js');
+var MemoryStore = express.session.MemoryStore;
+var usersystemPlugins = new PluginLoader("plugins", "name");
 
 // LOAD SETTINGS
 var settings;
 if (fs.existsSync(__dirname + "/settings.json"))
-{ settings = JSON.parse(fs.readFileSync(__dirname + "/settings.json"));
+{ settings = require("./settings.json");
 }
 else
 { console.info("Warning: using default settings file");
-  settings = JSON.parse(fs.readFileSync(__dirname + "/settings-default.json"));
+  settings = require("./settings-default.json");
 }
 
+var usersystem = usersystemPlugins.get(settings["Usersystem Plugin"])
+                 || console.log("Specified usersystem not found or invalid. Using defualt usersystem 'session'.") ||
+                    usersystemPlugins.get("session");
+
 // DATABASE CONTROLLER
-database = new function Database()
+database = new function DatabaseController()
 { upvotes = {};
   downvotes = {};
   this.settings = settings;
@@ -98,32 +104,23 @@ app.get('/', function (req, res)
   { vote = database.getVote(req.session.token);
     res.send(jade.renderFile(__dirname + "/templates/index.jade", {"vote": vote}));
   }
-  if (req.session.token)
+  if (usersystem.is_logged_in(req.session))
   { send_page(req, res);
   }
   else;
-  { // TODO: redo with plugins
-    if (settings.LOGIN == "session")
-    { req.session.token = req.session.id;
-      req.session.save();
-      send_page(req, res);
-    }
-    else if (settings.LOGIN == "codeday")
-    { ret = encodeURIComponent("http://"+req.headers.host+"/login");
-      res.redirect('http://codeday.org/oauth?token='+settings.codeDatappToken+'&return='+ret);
-    }
-    else
-      res.error(503, "Invalid LOGIN");
+  { usersystem.request_login(req, res, "http://"+req.headers.host+"/login");
   }
 });
 app.get('/login', function (req, res)
 { // TODO: verify code by accessing user's name on codeday.org
-  if (req.query.code)
-  { req.session.token = req.query.code;
-    req.session.save();
+  if (usersystem.accept_login(req))
+  { console.log("logging in");
+    res.redirect('/');
   }
-  console.log("logging in");
-  res.redirect('/');
+  else
+  { console.log("failed login attempt");
+    res.redirect('/error?error=login');
+  }
 });
 // API in place of websocket interface just in case
 app.post('/vote/down', function (req, res)
