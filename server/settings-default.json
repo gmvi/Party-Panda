@@ -1,7 +1,7 @@
 {
-  "sessionSecret" : "You Should Really Change This",
-  "debugPort" : 5001,
-  "DEFAULT_MIN" : 1,
-  "Usersystem Plugin" : "session",
-  "RESTRICT_CHROME_EXTENSION" : ""
+  "session secret" : "You Should Really Change This",
+  "port" : 5001,
+  "min votes" : 1,
+  "usersystem plugin" : "session",
+  "restrict chrome extension" : ""
 }

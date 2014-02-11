@@ -22,7 +22,7 @@ else
   settings = require("./settings-default.json");
 }
 
-var usersystem = usersystemPlugins.get(settings["Usersystem Plugin"])
+var usersystem = usersystemPlugins.get(settings["usersystem plugin"])
                  || console.log("Specified usersystem not found or invalid. Using defualt usersystem 'session'.") ||
                     usersystemPlugins.get("session");
 
@@ -55,7 +55,7 @@ database = new function DatabaseController()
     numDown = Object.keys(downvotes).length;
     total = numUp + numDown;
     console.log("total votes: "+ total);
-    if (total < settings.DEFAULT_MIN) return;
+    if (total < settings.['min votes']) return;
     else if (numUp / total >= .6) return "up";
     else if (numUp / total <= .3)
     { return "down";
@@ -82,10 +82,10 @@ var app = new express();
 var server = http.createServer(app);
 var wsServer = new ws.Server({server: server});
 
-var cookieParser = new express.cookieParser(settings.sessionSecret);
+var cookieParser = new express.cookieParser(settings['session secret']);
 var sessionstore = new MemoryStore();
 var sessionParser = new express.session({ key: "express.sid",
-                                          // secret: settings.sessionSecret,
+                                          // secret: settings['session secret'],
                                           store: sessionstore });
 //app.use(express.logger());
 app.use(cookieParser);
@@ -181,7 +181,9 @@ function is_connection_from_extension(origin)
 { if (origin == "http://www.pandora.com") return true;
   origin = origin.split("//");
   return ( origin[0] == "chrome-extension:" &&
-           ! ( settings.RESTRICT_CHROME_EXTENSION && origin[1] !=  settings.RESTRICT_CHROME_EXTENSION )
+           ! ( settings['restrict chrome extension'] &&
+               origin[1] != settings['restrict chrome extension']
+             )
          );
 }
 
@@ -228,4 +230,4 @@ wsServer.on('connection', function(ws) {
 });
 
 // START SERVER
-server.listen(process.env.PORT || settings.debugPort);
+server.listen(process.env.PORT || settings['port']);
