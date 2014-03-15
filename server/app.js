@@ -1,15 +1,23 @@
 // Party Panda
-// A controller which mediates a pandora playlist based on the opinions of a group of people.
+// A controller which mediates a pandora playlist based on the opinions of a
+// group of people.
 
 var fs = require('fs'),
     ws = require('ws'),
     util = require('util'),
     http = require('http'),
     jade = require('jade'),
+    redis = require('redis'),
     express = require('express'),
-    fibrous = require('fibrous'),
-    PluginLoader = require('./PluginLoader.js');
+    fibrous = require('fibrous'), // can I remove this and replace with promises?
+    Promise = require('es6-promise').Promise,
+    PluginLoader = require('./PluginLoader.js'),
+    MemoryDatabase = require('./MemoryDatabase.js'),
+    RedisDatabase = require('./RedisDatabase.js');
+var RedisStore = require('connect-redis')(express);
 var MemoryStore = express.session.MemoryStore;
+
+var redisClient = redis.createClient();
 var usersystemPlugins = new PluginLoader("plugins", "name");
 
 // LOAD SETTINGS
@@ -22,58 +30,48 @@ else
   settings = require("./settings-default.json");
 }
 
-var usersystem = usersystemPlugins.get(settings["usersystem plugin"])
-                 || console.log("Specified usersystem not found or invalid. Using defualt usersystem 'session'.") ||
-                    usersystemPlugins.get("session");
-
 // DATABASE CONTROLLER
-database = new function DatabaseController()
-{ upvotes = {};
-  downvotes = {};
-  this.settings = settings;
-  this.storeVote = function storeVote(unique, vote)
-  { if (vote == "down")
-    { downvotes[unique] = true;
-      delete upvotes[unique];
-    }
-    else if (vote == "up")
-    { upvotes[unique] = true;
-      delete downvotes[unique];
-    }
-  }
-  this.getVote = function getVote(unique)
-  { if (unique in upvotes) return "up";
-    else if (unique in downvotes) return "down";
-    else return;
-  }
-  this.resetVotes = function resetVotes()
-  { upvotes = {};
-    downvotes = {};
-  }
-  this.getConsensus = function getConsensus()
-  { numUp = Object.keys(upvotes).length;
-    numDown = Object.keys(downvotes).length;
-    total = numUp + numDown;
-    console.log("total votes: "+ total);
-    if (total < settings.['min votes']) return;
-    else if (numUp / total >= .6) return "up";
-    else if (numUp / total <= .3)
-    { return "down";
-    }
-  }
-}();
+var database;
+if (settings.debug)
+  database = new MemoryDatabase();
+else
+  database = new RedisDatabase(redisClient);
 
-// 
-function registerVote(session, vote)
-{ if (session.token)
-  { database.storeVote(session.token, vote);
-    consensus = database.getConsensus();
-    console.log("consensus: "+consensus);
-    if (consensus)
-    { console.log("consensus truthy");
-      extensionWS.send("rating:"+consensus);
-    }
+default_room_settings = { session : "session",
+                          minVotes : settings['min votes'],
+                          thresholdUp : settings['upvote threshold'],
+                          thresholdDown : settings['downvote threshold']
+                        };
+
+var registerVote = function registerVote(room, unique, vote, fn)
+{ // ensure unique identifier exists
+  if (!session.token)
+  { fn(new TypeError("session must have a token"));
+    return;
   }
+  var vote_promise;
+  vote_promise = database.storeVote(room, session.token, vote);
+  vote_promise.then(function(upvotes, downvotes)
+  { var total = upvotes+downvotes;
+    settings_promise = database.getSettings(room, ['minVotes',
+                                                   'thresholdUp',
+                                                   'thresholdDown']);
+    settings_promise.then(function(room_settings)
+    { if (total > room_settings.minVotes)
+      { if (up/total >= room_settings.thresholdUp)
+          fn(null, "up");
+        else
+        { if (down/total <= room_settings.thresholdDown)
+          fn(null, "down");
+        }
+      }
+      else
+        fn()
+    });
+  });
+  vote_promise.error(function(err)
+  { fn(err);
+  });
 }
 
 
@@ -83,10 +81,13 @@ var server = http.createServer(app);
 var wsServer = new ws.Server({server: server});
 
 var cookieParser = new express.cookieParser(settings['session secret']);
-var sessionstore = new MemoryStore();
+var sessionStore;
+if (settings.debug)
+  sessionStore = new MemoryStore();
+else
 var sessionParser = new express.session({ key: "express.sid",
                                           // secret: settings['session secret'],
-                                          store: sessionstore });
+                                          store: sessionStore });
 //app.use(express.logger());
 app.use(cookieParser);
 app.use(sessionParser);
@@ -101,7 +102,7 @@ app.use('/bower', express.static(__dirname + '/bower_components')); // bower com
 // APP ENDPOINTS
 app.get('/', function (req, res)
 { function send_page(req, res)
-  { vote = database.getVote(req.session.token);
+  { vote = database.getVote(null, req.session.token);
     res.send(jade.renderFile(__dirname + "/templates/index.jade", {"vote": vote}));
   }
   if (usersystem.is_logged_in(req.session))
@@ -124,13 +125,15 @@ app.get('/login', function (req, res)
 });
 // API in place of websocket interface just in case
 app.post('/vote/down', function (req, res)
-{ registerVote(req.session, 'down');
+{ registerVote(null, req.session, 'down');
   res.send(200);
 });
 app.post('/vote/up', function (req, res)
-{ registerVote(req.session, 'up');
+{ registerVote(null, req.session, 'up');
   res.send(200);
 });
+
+// TODO: reevalute the following for shift to multi-room system
 
 // WEBSOCKET LOGIC
 function parse(message)
@@ -159,23 +162,23 @@ function parse(message)
 var dummyWS = (
 { send : function dummysend(message)
   { // maybe reevaluate in a bit
-    clients.send("reset:");
+    wsClients.send("reset:");
   }
 });
 var extensionWS;
 function Clients()
-{ self = {};
+{ clients = Object.create(null);
   this.add = function add(ws)
-  { self[ws.upgradeReq.headers['sec-websocket-key']] = ws;
+  { clients[ws.upgradeReq.headers['sec-websocket-key']] = ws;
   }
   this.remove = function remove(ws)
-  { delete self[ws.upgradeReq.headers['sec-websocket-key']];
+  { delete clients[ws.upgradeReq.headers['sec-websocket-key']];
   }
   this.broadcast = function broadcast(message)
-  { for (key in self) self[key].send(message);
+  { for (key in clients) clients[key].send(message);
   }
 }
-var clients = new Clients();
+var wsClients = new Clients();
 
 function is_connection_from_extension(origin)
 { if (origin == "http://www.pandora.com") return true;
@@ -193,15 +196,15 @@ wsServer.on('connection', function(ws) {
     ws.on('message', function(message) {
       message = parse(message);
       if (message.type == "update")
-      { database.resetVotes();
-        clients.broadcast(message.originalMessage);
+      { database.resetVotes(null);
+        wsClients.broadcast(message.originalMessage);
       }
       else
         console.log("extraneous message from extension: " + JSON.stringify(message));
     });
     if (extensionWS) extensionWS.terminate();
     extensionWS = ws;
-    database.resetVotes();
+    database.resetVotes(null);
   }
   else // client
   { fibrous.run(function() // attatch session to socket
@@ -213,7 +216,7 @@ wsServer.on('connection', function(ws) {
     ws.on('message', function(message)
     { message = parse(message);
       if (message.type == "vote")
-      { registerVote(ws.session, message.data)
+      { registerVote(null, ws.session, message.data)
       }
       // else if (message == "test")
       // { ws.send("session:"+JSON.stringify(ws.session));
@@ -222,10 +225,10 @@ wsServer.on('connection', function(ws) {
         console.log("extraneous message from client: "+JSON.stringify(message));
     });
     ws.on('close', function()
-    { clients.remove(ws);
+    { wsClients.remove(ws);
     });
     // store websocket for broadcasting to it.
-    clients.add(ws);
+    wsClients.add(ws);
   }
 });
 

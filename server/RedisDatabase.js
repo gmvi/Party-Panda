@@ -13,7 +13,7 @@ var std = function std(resolve, reject)
   }
 }
 
-module.exports = new function MemoryDatabaseController(client, options)
+module.exports = function RedisDatabaseController(client, options)
 { // rooms
   this.roomExists = function roomExists(name)
   { return new Promise(function(resolve, reject)
@@ -30,8 +30,14 @@ module.exports = new function MemoryDatabaseController(client, options)
   { return this.roomExists(name).then(function(exists)
     { if (!name || exists) throw new TypeError("Can't create room");
       return new Promise(function(resolve, reject)
-      { var fn = erronly(resolve, reject);
-        client.hmset("room:"+name+".settings", settings, fn);
+      { client.sadd("rooms", name, function(err, result)
+        { if (err) reject(err);
+          else if (settings != undefined)
+          { var fn = erronly(resolve, reject);
+            client.hmset("room:"+name+".settings", settings, fn);
+          }
+          else resolve();
+        });
       });
     });
   }
@@ -127,4 +133,4 @@ module.exports = new function MemoryDatabaseController(client, options)
       client.hset("room:"+name+".settings", setting, value, fn);
     });
   }
-}();
+}

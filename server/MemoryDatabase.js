@@ -1,11 +1,10 @@
 Promise = require('es6-promise').Promise;
 
-/*TODO: write tests for DatabaseControllers?
-        refactor app.js*//
+  new TypeError("Vote must be 'up' or 'down'.")
 
 // DatabaseControllers should return Promises which resolve to the requested
 // item, or which resolve after storing the specified item.
-module.exports = new function MemoryDatabaseController()
+module.exports = function MemoryDatabaseController(options)
 { var rooms = Object.create(null); // clean object;
                                    // does not inherit from Object.prototype
   // rooms
@@ -93,4 +92,4 @@ module.exports = new function MemoryDatabaseController()
       resolve();
     });
   }
-}();
+}

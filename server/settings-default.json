@@ -3,5 +3,6 @@
   "port" : 5001,
   "min votes" : 1,
   "usersystem plugin" : "session",
-  "restrict chrome extension" : ""
+  "restrict chrome extension" : "",
+  "debug" : true
 }
