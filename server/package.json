@@ -19,6 +19,7 @@
     "node": "0.10.x"
   },
   "scripts": {
+    "postinstall": "bower install",
     "postinstall": "./node_modules/bower/bin/bower install"
   }
 }
