@@ -3,11 +3,14 @@ var chaiAsPromised = require("chai-as-promised");
 chai.use(chaiAsPromised);
 chai.should();
 
-var MemoryDatabase = require('../MemoryDatabase.js');
+var redis = require('redis');
+var client = redis.createClient();
 
-describe('MemoryDatabase', function()
+var RedisDatabase = require('../RedisDatabase.js');
+
+describe('RedisDatabase', function()
 { 
-  var db = new MemoryDatabase();
+  var db = new RedisDatabase(client);
   beforeEach(db.clearAll.bind(null));
   after(db.clearAll.bind(null));
   after(db.close.bind(null));

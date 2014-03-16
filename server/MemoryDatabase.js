@@ -6,6 +6,7 @@ var a = new TypeError("Vote must be 'up' or 'down'.");
 // item, or which resolve after storing the specified item.
 module.exports = function MemoryDatabaseController(options)
 { var rooms;
+  var closed = false;
 
   this.clearAll = function clearAll()
   { rooms = Object.create(null); // clean object;
@@ -13,10 +14,17 @@ module.exports = function MemoryDatabaseController(options)
     return Promise.resolve();
   }
   this.clearAll();
+  this.close = function close()
+  { return new Promise(function(resolve)
+    { closed = true;
+      resolve();
+    });
+  }
 
   // rooms
-  var roomExists = function roomExists(name)
+  function roomExists(name)
   { // probably not worth the overhead to set up a full Promise
+    if (closed) return Promise.reject(new TypeError("Database connection is closed"));
     if (!name) return Promise.reject(new TypeError("Empty room identifier"));
     return Promise.resolve(name in rooms);
   }
@@ -91,7 +99,7 @@ module.exports = function MemoryDatabaseController(options)
   // settings
   this.getSetting = function getSetting(name, setting)
   { return checkRoomExists(name, function(resolve)
-    { resolve(rooms[name].settings[setting]);
+    { resolve(rooms[name].settings[setting] || null);
     });
   }
   this.setSetting = function setSetting(name, setting, value)
