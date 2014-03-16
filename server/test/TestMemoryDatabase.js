@@ -125,5 +125,27 @@ describe('MemoryDatabase', function()
       });
     });
   });
-  describe.skip('settings', function(){it();});
+  describe('settings', function() {
+    it('should start empty', function() {
+      return db.createRoom('asdf').then(function() {
+        return db.getSetting('asdf', 'thing').should.eventually.equal(undefined);
+      });
+    });
+    it('should take a value and keep it', function() {
+      return db.createRoom('asdf').then(function() {
+        return db.setSetting('asdf', 'thing', 'value');
+      }).then(function() {
+        return db.getSetting('asdf', 'thing').should.eventually.equal('value');
+      });
+    });
+    it('values should overwrite properly', function() {
+      return db.createRoom('asdf').then(function() {
+        return db.setSetting('asdf', 'thing', 'value');
+      }).then(function() {
+        return db.setSetting('asdf', 'thing', 'other value');
+      }).then(function() {
+        return db.getSetting('asdf', 'thing').should.eventually.equal('other value');
+      });
+    });
+  });
 });
