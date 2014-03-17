@@ -12,8 +12,8 @@ var fs = require('fs'),
     fibrous = require('fibrous'), // can I remove this and replace with promises?
     Promise = require('es6-promise').Promise,
     PluginLoader = require('./PluginLoader.js'),
-    MemoryDatabase = require('./MemoryDatabase.js'),
-    RedisDatabase = require('./RedisDatabase.js');
+    MemoryDatabase = require('./database/MemoryDatabase.js'),
+    RedisDatabase = require('./database/RedisDatabase.js');
 var RedisStore = require('connect-redis')(express);
 var MemoryStore = express.session.MemoryStore;
 
