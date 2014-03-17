@@ -123,7 +123,7 @@ module.exports = function RedisDatabaseController(client, options)
       client.multi()
               .del("room:"+name+".up")
               .del("room:"+name+".down")
-            .exec(erronly(fn));
+            .exec(fn);
     });
   }
   this.getNumUpvotes = function getNumUpvotes(name)
