@@ -1,5 +1,5 @@
 // Party Panda
-// A controller which mediates a pandora playlist based on the opinions of a
+// A controller which mediates a pandora playlist based on the votes of a
 // group of people.
 
 var fs = require('fs'),
@@ -44,31 +44,25 @@ default_room_settings = { session : "session",
                           thresholdDown : settings['downvote threshold']
                         };
 
-var registerVote = function registerVote(room, unique, vote, fn)
+var registerVote = function registerVote(room, unique, vote)
 { // ensure unique identifier exists
-  var vote_promise;
-  if (vote == "up")
-    vote_promise = database.storeUpvote(room, unique, vote);
-  vote_promise.then(function(upvotes, downvotes)
+  var db_call = database.setVote(room, unique, vote);
+  return db_call.then(function(upvotes, downvotes)
   { var total = upvotes+downvotes;
     settings_promise = database.getSettings(room, ['minVotes',
                                                    'thresholdUp',
                                                    'thresholdDown']);
-    settings_promise.then(function(room_settings)
+    return settings_promise.then(function(room_settings)
     { if (total > room_settings.minVotes)
       { if (up/total >= room_settings.thresholdUp)
-          fn(null, "up");
-        else
-        { if (down/total <= room_settings.thresholdDown)
-          fn(null, "down");
-        }
+          wsclient.emitVote('up');
+        else if (down/total <= room_settings.thresholdDown)
+          wsclient.emitVote('down');
       }
-      else
-        fn()
     });
-  });
-  vote_promise.error(function(err)
-  { fn(err);
+  }).error(function(err)
+  { console.log("error registering vote from '"+unique+"' in room '"+room+"'");
+    throw err;
   });
 }
 
@@ -123,20 +117,27 @@ app.get('/login', function (req, res)
 });
 // API in place of websocket interface just in case
 app.post('/vote/down', function (req, res)
-{ registerVote(null, req.session, 'down');
-  res.send(200);
+{ if (usersystem.is_logged_in(req.session))
+  { registerVote('main', req.session.token, 'down').then(function ()
+    { res.send(200);
+    });
+  }
+  else res.send(403);
 });
 app.post('/vote/up', function (req, res)
-{ registerVote(null, req.session, 'up');
-  res.send(200);
+{ if (usersystem.is_logged_in(req.session))
+  { registerVote('main', req.session.token, 'up').then(function ()
+    { res.send(200);
+    });
+  }
+  else res.send(403);
 });
 
 // TODO: reevalute the following for shift to multi-room system
 
 // WEBSOCKET LOGIC
 function parse(message)
-{ var originalMessage = message;
-  var type;
+{ var type;
   var data;
   if (1 + message.indexOf(":"))
   { message = message.split(":");
@@ -152,19 +153,16 @@ function parse(message)
     data = message;
   }
   return { type: type,
-           data: data,
-           originalMessage: originalMessage
+           data: data
          };
 }
 
-var dummyWS = (
-{ send : function dummysend(message)
-  { // maybe reevaluate in a bit
-    wsClients.send("reset:");
-  }
-});
-var extensionWS;
-function Clients()
+// how do I do sessions with extension web sockets?
+/// I register a room when I get an extension room creation request
+/// I unregister a room when I lose an extension websocket
+//// future: extension websocket heartbeats and timeout?
+/// the redis database records the set of taken rooms
+var wsPandoras = new function Pandoras()
 { clients = Object.create(null);
   this.add = function add(ws)
   { clients[ws.upgradeReq.headers['sec-websocket-key']] = ws;
@@ -175,8 +173,21 @@ function Clients()
   this.broadcast = function broadcast(message)
   { for (key in clients) clients[key].send(message);
   }
-}
-var wsClients = new Clients();
+}();
+var wsClients = new function Clients()
+{ clients = Object.create(null);
+  this.add = function add(ws)
+  { clients[ws.upgradeReq.headers['sec-websocket-key']] = ws;
+  }
+  this.remove = function remove(ws)
+  { delete clients[ws.upgradeReq.headers['sec-websocket-key']];
+  }
+  this.broadcast = function broadcast(message)
+  { for (key in clients) clients[key].send(message);
+  }
+  this.emitVote = function emitVote(vote)
+  { }
+}();
 
 function is_connection_from_extension(origin)
 { if (origin == "http://www.pandora.com") return true;
@@ -186,6 +197,7 @@ function is_connection_from_extension(origin)
                origin[1] != settings['restrict chrome extension']
              )
          );
+  // ^- obtuse way to say "if origin is an acceptable chome-extension (test) url"
 }
 
 wsServer.on('connection', function(ws) {
@@ -205,7 +217,9 @@ wsServer.on('connection', function(ws) {
     database.resetVotes(null);
   }
   else // client
-  { fibrous.run(function() // attatch session to socket
+  { // TODO: reevaluate, maybe use Promises instead of fibrous?
+    //       Why did I even use fibrous in the first place
+    fibrous.run(function() // attatch session to socket
     { cookieParser.sync(ws.upgradeReq, null);
       var sessionID = ws.upgradeReq.signedCookies['express.sid'];
       session = sessionstore.sync.load(sessionID);
