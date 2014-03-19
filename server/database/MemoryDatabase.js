@@ -62,20 +62,24 @@ module.exports = function MemoryDatabaseController(options)
       else resolve(null);
     });
   }
-  this.storeDownvote = function storeDownvote(name, unique)
-  { return checkRoomExists(name, function(resolve)
+  this.storeVote = function storeVote(name, unique, vote)
+  { return checkRoomExists(name, function(resolve, reject)
     { room = rooms[name];
-      room.downvotes[unique] = true;
-      delete room.upvotes[unique];
-      resolve();
-    });
-  }
-  this.storeUpvote = function storeUpvote(name, unique)
-  { return checkRoomExists(name, function(resolve)
-    { room = rooms[name];
-      room.upvotes[unique] = true;
-      delete room.downvotes[unique];
-      resolve();
+      if (vote == "up")
+      { room.upvotes[unique] = true;
+        delete room.downvotes[unique];
+      }
+      else if (vote == "down")
+      { room.downvotes[unique] = true;
+        delete room.upvotes[unique];
+      }
+      else
+      { reject(new Error("vote must be 'up' or 'down'"));
+      }
+      var upvotes = Object.keys(rooms[name].upvotes).length;
+      var downvotes = Object.keys(rooms[name].downvotes).length;
+      resolve({"upvotes"   : upvotes,
+               "downvotes" : downvotes});
     });
   }
   this.resetVotes = function resetVotes(name)

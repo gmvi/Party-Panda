@@ -17,7 +17,6 @@ var fs = require('fs'),
 var RedisStore = require('connect-redis')(express);
 var MemoryStore = express.session.MemoryStore;
 
-var redisClient = redis.createClient();
 var usersystemPlugins = new PluginLoader("plugins", "name");
 
 // LOAD SETTINGS
@@ -35,7 +34,9 @@ var database;
 if (settings.debug)
   database = new MemoryDatabase();
 else
+{ var redisClient = redis.createClient();
   database = new RedisDatabase(redisClient);
+}
 
 default_room_settings = { session : "session",
                           minVotes : settings['min votes'],
@@ -45,12 +46,9 @@ default_room_settings = { session : "session",
 
 var registerVote = function registerVote(room, unique, vote, fn)
 { // ensure unique identifier exists
-  if (!session.token)
-  { fn(new TypeError("session must have a token"));
-    return;
-  }
   var vote_promise;
-  vote_promise = database.storeVote(room, session.token, vote);
+  if (vote == "up")
+    vote_promise = database.storeUpvote(room, unique, vote);
   vote_promise.then(function(upvotes, downvotes)
   { var total = upvotes+downvotes;
     settings_promise = database.getSettings(room, ['minVotes',

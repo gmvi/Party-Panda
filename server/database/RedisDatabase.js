@@ -99,22 +99,25 @@ module.exports = function RedisDatabaseController(client, options)
       });
     });
   }
-  this.storeDownvote = function storeDownvote(name, unique)
+  this.storeVote = function storeVote(name, unique, vote)
   { return checkRoomExists(name, function(resolve, reject)
-    { var fn = erronly(resolve, reject);
-      client.multi()
-              .sadd("room:"+name+".down", unique)
-              .srem("room:"+name+".up", unique)
-            .exec(fn);
-    });
-  }
-  this.storeUpvote = function storeUpvote(name, unique)
-  { return checkRoomExists(name, function(resolve, reject)
-    { var fn = erronly(resolve, reject);
-      client.multi()
-              .sadd("room:"+name+".up", unique)
-              .srem("room:"+name+".down", unique)
-            .exec(fn);
+    { multi = client.multi();
+      if (vote == "up")
+        multi.sadd("room:"+name+".up", unique)
+             .srem("room:"+name+".down", unique);
+      else if (vote == "down")
+        multi.sadd("room:"+name+".down", unique)
+             .srem("room:"+name+".up", unique);
+      else
+        reject(new Error("vote must be 'up' or 'down'"));
+      multi.exec(function()
+      { client.scard("room:"+name+".up", function(err, upvotes)
+        { client.scard("room:"+name+".down", function(err, downvotes)
+          { resolve({"upvotes"   : upvotes,
+                     "downvotes" : downvotes});
+          });
+        });
+      });
     });
   }
   this.resetVotes = function resetVotes(name)

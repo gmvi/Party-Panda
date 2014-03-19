@@ -64,35 +64,35 @@ module.exports = function TestDatabase(db)
     });
     it('#getNumUpvotes should return one after adding an upvote', function get_upvotes_one() {
       return db.createRoom('asdf').then(function() {
-        return db.storeUpvote('asdf', 'user');
+        return db.storeVote('asdf', 'user', 'up');
       }).then(function() {
         return db.getNumUpvotes('asdf').should.eventually.equal(1);
       });
     });
     it('#getNumDownvotes should return one after adding a downvote', function get_downvotes_one() {
       return db.createRoom('asdf').then(function() {
-        return db.storeDownvote('asdf', 'user');
+        return db.storeVote('asdf', 'user', 'down');
       }).then(function() {
         return db.getNumDownvotes('asdf').should.eventually.equal(1);
       });
     });
     it('#getVote should return up after adding an upvote', function get_vote_up() {
       return db.createRoom('asdf').then(function() {
-        return db.storeUpvote('asdf', 'user');
+        return db.storeVote('asdf', 'user', 'up');
       }).then(function() {
         return db.getVote('asdf', 'user').should.eventually.equal('up');
       });
     });
     it('#getVote should return down after adding a downvote', function get_vote_down() {
       return db.createRoom('asdf').then(function() {
-        return db.storeDownvote('asdf', 'user');
+        return db.storeVote('asdf', 'user', 'down');
       }).then(function() {
         return db.getVote('asdf', 'user').should.eventually.equal('down');
       });
     });
     it('#getNumUpvotes should return zero after clearing votes', function get_upvotes_cleared() {
       return db.createRoom('asdf').then(function() {
-        return db.storeUpvote('asdf', 'user');
+        return db.storeVote('asdf', 'user', 'up');
       }).then(function() {
         return db.resetVotes('asdf');
       }).then(function() {
@@ -101,7 +101,7 @@ module.exports = function TestDatabase(db)
     });
     it('#getNumDownvotes should return zero after clearing votes', function get_downvotes_cleared() {
       return db.createRoom('asdf').then(function() {
-        return db.storeDownvote('asdf', 'user');
+        return db.storeVote('asdf', 'user', 'down');
       }).then(function() {
         return db.resetVotes('asdf');
       }).then(function() {
@@ -110,10 +110,43 @@ module.exports = function TestDatabase(db)
     });
     it('#getVote should return null after clearing votes', function get_vote_cleared() {
       return db.createRoom('asdf').then(function() {
+        return db.storeVote('asdf', 'user', 'down');
+      }).then(function() {
         return db.resetVotes('asdf');
       }).then(function() {
         return db.getVote('asdf', 'user').should.eventually.equal(null);
       });
+    });
+    it('#setVote should return the current votes', function set_vote() {
+      return db.createRoom('asdf').then(function() {
+        return db.storeVote('asdf', 'user', 'down');
+      }).then(function(votes) {
+        votes.should.have.property('upvotes', 0);
+        votes.should.have.property('downvotes', 1);
+        return db.storeVote('asdf', 'user2', 'up');
+      }).then(function(votes) {
+        votes.should.have.property('upvotes', 1);
+        votes.should.have.property('downvotes', 1);
+        return db.storeVote('asdf', 'user3', 'down');
+      }).then(function(votes) {
+        votes.should.have.property('upvotes', 1);
+        votes.should.have.property('downvotes', 2);
+      });
+    });
+    it('#setVote should clear an old vote when a new one is set', function switch_vote() {
+      return db.createRoom('asdf').then(function() {
+        return db.storeVote('asdf', 'user', 'down');
+      }).then(function(votes) {
+        return db.storeVote('asdf', 'user', 'up');
+      }).then(function(votes) {
+        votes.should.have.property('upvotes', 1);
+        votes.should.have.property('downvotes', 0);
+      });
+    });
+    it('#setVote should be rejected when vote is invalid', function invalid_vote() {
+      return db.createRoom('asdf').then(function() {
+        return db.storeVote('asdf', 'user', 'invalid');
+      }).should.be.rejected;
     });
   });
   describe('settings', function() {
