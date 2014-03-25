@@ -1,8 +1,7 @@
 {
-  "session secret" : "You Should Really Change This",
+  "cookie secret" : "You Should Really Change This",
   "port" : 5001,
   "min votes" : 1,
   "usersystem plugin" : "session",
-  "restrict chrome extension" : "",
   "debug" : true
 }
