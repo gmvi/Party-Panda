@@ -28,7 +28,8 @@ var usersystems = new PluginLoader("usersystems", {id: "name"});
 
 function std_catch(res)
 { return function (err)
-  { console.log(err.stack);
+  { console.log((typeof(err) == "object" && err.stack)
+                || "error caught, but no stack found");
     if (res != undefined) res.send(500);
   }
 }
@@ -74,9 +75,9 @@ else
 }
 
 default_settings = { usersystem : "session",
-                     minVotes : settings['min votes'],
-                     thresholdUp : settings['upvote threshold'],
-                     thresholdDown : settings['downvote threshold']
+                     minVotes : 2,
+                     thresholdUp : .6,
+                     thresholdDown : .4
                    };
 
 var database = new DatabaseController({client:           client,
@@ -138,7 +139,7 @@ app.use('/bower',   express.static(__dirname + '/bower_components'));
 app.get('/', function (req, res)
 { database.getSetting("null", "usersystem").then(function (usersystem_name)
   { usersystem = usersystems.get(usersystem_name);
-    if (usersystem.is_logged_in(req.session))
+    if (usersystem.is_logged_in(req))
     { database.getVote("null", req.session.token).then(function (vote)
       { res.send(render("index", {"vote": vote}));
       }).catch(std_catch(res));
@@ -170,7 +171,7 @@ app.get('/error', function (req, res)
 app.post('/vote/down', function (req, res)
 { database.getSetting("null", "usersystem").then(function (usersystem_name)
   { var usersystem = usersystems.get(usersystem_name);
-    if (usersystem.is_logged_in(req.session))
+    if (usersystem.is_logged_in(req))
     { registerVote('null', req.session.token, 'down')
         .then(res.send.bind(res, 200))
         .catch(res.send.bind(res, 500));
@@ -179,7 +180,7 @@ app.post('/vote/down', function (req, res)
   }).catch(std_catch(res));
 });
 app.post('/vote/up', function (req, res)
-{ if (usersystem.is_logged_in(req.session))
+{ if (usersystem.is_logged_in(req))
   { registerVote('null', req.session.token, 'up')
       .then(res.send.bind(res, 200))
       .catch(res.send.bind(res, 500));
@@ -261,6 +262,7 @@ wsServer.on('connection', function (ws) {
       sessionStore.load(sessionID, function (err, session)
       { if (err) return reject(err);
         ws.session = session;
+        ws.sessionID = sessionID;
         resolve();
       });
     });
@@ -269,7 +271,7 @@ wsServer.on('connection', function (ws) {
     var promise = database.getSetting("null", "usersystem")
     return promise.then(function (usersystem_name)
     { var usersystem = usersystems.get(usersystem_name);
-      return usersystem.is_logged_in(ws.session);
+      return usersystem.is_logged_in(ws);
     });
   }).then(function (logged_in)
   { // throw out ws if not logged in
@@ -304,7 +306,8 @@ wsServer.on('connection', function (ws) {
       ws.send("ready");
     }
     else // from web client
-    { ws.on('message', function (message)
+    { console.log("connection from client");
+      ws.on('message', function (message)
       { parsed = parseMessage(message);
         if (parsed.type == "vote")
         { if (parsed.data !== "up" &&

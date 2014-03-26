@@ -83,12 +83,12 @@ module.exports = function DatabaseController(options)
   // identifier.
   this.getVote = function getVote(room, unique)
   { return checkRoomExists(room, function(resolve, reject)
-    { // get upvotes
+    { // upvote?
       var up = new Promise(function(resolve, reject)
       { var fn = bool(resolve, reject);
         client.sismember("room:"+room+".up", unique, fn);
       });
-      // get downvotes
+      // downvote?
       var down = new Promise(function(resolve, reject)
       { var fn = bool(resolve, reject);
         client.sismember("room:"+room+".down", unique, fn);

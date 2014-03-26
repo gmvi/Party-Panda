@@ -7,7 +7,7 @@ var fakeredis = require('fakeredis');
 var client = fakeredis.createClient();
 
 var DatabaseController = require('../DatabaseController.js');
-var db = new DatabaseController(client);
+var db = new DatabaseController({'client': client});
 
 describe('DatabaseController', function TestDatabase()
 { beforeEach(db.clearAll.bind());
