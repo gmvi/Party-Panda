@@ -157,19 +157,22 @@ module.exports = function DatabaseController(options)
   }
   this.getSettings = function getSettings(room, settings)
   { return checkRoomExists(room, function(resolve, reject)
-    { var return_obj = {};
-      var promises = Array(settings.length);
+    { var promises = Array(settings.length);
       for (var i in settings)
       { var setting = settings[i];
         promises[i] = new Promise(function(resolve, reject)
         { var fn = std(resolve, reject);
-          client.hget("room:"+room+".settings", setting, fn);
-        }).then(function(result)
-        { return_obj[setting] = result;
+          client.hget("room:"+room+".settings", setting, function(err, result)
+          { if (err) return reject(err);
+            resolve(result);
+          });
         });
       }
-      return Promise.all(promises).then(function()
-      { resolve(return_obj);
+      return Promise.all(promises).then(function(results)
+      { var return_obj = {};
+        for (var i in settings)
+          return_obj[settings[i]] = results[i];
+        resolve(return_obj);
       })
     });
   }

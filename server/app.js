@@ -19,8 +19,10 @@ var Promise = require('es6-promise').Promise,
     PluginLoader = require('./PluginLoader.js'),
     DatabaseController = require('./DatabaseController.js');
 
-var MemoryStore = express.session.MemoryStore;
-var RedisStore = require('connect-redis')(express);
+var Cookie = express.session.Cookie,
+    Session = express.session.Session,
+    MemoryStore = express.session.MemoryStore,
+    RedisStore = require('connect-redis')(express);
 
 //** VARIOUS SETUP AND UTILS
 
@@ -61,6 +63,12 @@ catch (err)
   settings = require("./settings-default.json");
 }
 
+var debug;
+if (settings.debug) debug = function debug()
+{ console.log.apply(console, arguments);
+}
+else debug = function pass() {}
+
 
 //** DATABASE CONTROLLER
 var client;
@@ -87,18 +95,21 @@ var database = new DatabaseController({client:           client,
 var registerVote = function registerVote(room, unique, vote)
 { return database.storeVote(room, unique, vote).then(function (votes)
   { var total = votes.upvotes + votes.downvotes;
-
+    debug("votes:", votes);
     return database.getSettings(room, ['minVotes',
                                        'thresholdUp',
                                        'thresholdDown'])
       .then(function (room_settings)
-    { if (total > room_settings.minVotes)
-      { if (votes.upvotes/total >= room_settings.thresholdUp)
+    { debug("min votes:", room_settings.minVotes);
+      if (total >= room_settings.minVotes)
+      { var relative_up = votes.upvotes/total;
+        debug("meter:", relative_up);
+        if (relative_up >= room_settings.thresholdUp)
           wsClients.emitVote("null", 'up');
-        else if (votes.downvotes/total <= room_settings.thresholdDown)
+        else if (relative_up <= room_settings.thresholdDown)
           wsClients.emitVote("null", 'down');
       }
-    });
+    })
   }).catch(function (err)
   { console.log("error registering vote from {0} in room {1}: {2}"
                 .format(unique, room, vote));
@@ -201,6 +212,8 @@ var wsClients = new function Clients()
   }
   this.add = function add(room, ws)
   { room = get(room);
+    if (ws.upgradeReq.headers['sec-websocket-key'] in room)
+      throw new Error("multiple connections from same session");
     room[ws.upgradeReq.headers['sec-websocket-key']] = ws;
   }
   this.remove = function remove(room, ws)
@@ -213,7 +226,8 @@ var wsClients = new function Clients()
       room[key].send(message);
   }
   this.emitVote = function emitVote(room, vote)
-  { this.broadcast(room, "consensus:"+vote);
+  { debug("sending vote: " + vote);
+    this.broadcast(room, "consensus:"+vote);
   }
 }();
 
@@ -253,17 +267,29 @@ function is_from_extension(origin)
   return false;
 }
 
-wsServer.on('connection', function (ws) {
-  new Promise(function (resolve, reject)
+wsServer.on('connection', function (ws)
+{ new Promise(function (resolve, reject)
   { // attatch session to socket
-    parseCookie(ws.upgradeReq, null, function (err)
+    parseCookie(ws.upgradeReq, null, function load_session(err)
     { if (err) return reject(err);
       var sessionID = ws.upgradeReq.signedCookies['express.sid'];
-      sessionStore.load(sessionID, function (err, session)
+      ws.upgradeReq.sessionID = sessionID;
+      ws.upgradeReq.sessionStore = sessionStore;
+      sessionStore.get(sessionID, function attatch_session(err, session)
       { if (err) return reject(err);
-        ws.session = session;
-        ws.sessionID = sessionID;
-        resolve();
+        if (!session)
+        { ws.upgradeReq.session = new Session(ws.upgradeReq);
+          ws.upgradeReq.session.cookie = new Cookie();
+        }
+        else
+        { sessionStore.createSession(ws.upgradeReq, session);
+        }
+        // save the session
+        ws.upgradeReq.session.resetMaxAge();
+        ws.upgradeReq.session.save(function(err)
+        { if (err) reject(err);
+          else resolve();
+        });
       });
     });
   }).then(function ()
@@ -271,7 +297,7 @@ wsServer.on('connection', function (ws) {
     var promise = database.getSetting("null", "usersystem")
     return promise.then(function (usersystem_name)
     { var usersystem = usersystems.get(usersystem_name);
-      return usersystem.is_logged_in(ws);
+      return usersystem.is_logged_in(ws.upgradeReq);
     });
   }).then(function (logged_in)
   { // throw out ws if not logged in
@@ -279,6 +305,13 @@ wsServer.on('connection', function (ws) {
     { ws.send("error:\"not logged in\"");
       ws.close();
       return;
+    }
+    // proxy send to extend life of session
+    var send = ws.send;
+    ws.send = function proxied_send()
+    { ws.upgradeReq.session.resetMaxAge();
+      ws.upgradeReq.session.save();
+      send.apply(ws, arguments);
     }
     // categorize ws based on origin
     var from_extension = is_from_extension(ws.upgradeReq.headers.origin);
@@ -288,7 +321,7 @@ wsServer.on('connection', function (ws) {
       { var orig_message = message;
         message = parseMessage(message);
         if (message.type == "start")
-        { message.data
+        { //?
         }
         else if (message.type == "new_song")
         { // TODO: handle song update
@@ -302,8 +335,11 @@ wsServer.on('connection', function (ws) {
         else
           console.log("extraneous message from extension: "
                        + orig_message);
+        // extend life of session
+        ws.upgradeReq.session.resetMaxAge();
+        ws.upgradeReq.session.save();
       });
-      ws.send("ready");
+      ws.send("ready"); // necessary?
     }
     else // from web client
     { console.log("connection from client");
@@ -312,12 +348,15 @@ wsServer.on('connection', function (ws) {
         if (parsed.type == "vote")
         { if (parsed.data !== "up" &&
               parsed.data !== "down")
-            console.log("bad vote from web client: {0}".format(parsed.data));
+            debug("bad vote from web client: {0}".format(parsed.data));
           else
-            registerVote("null", ws.session.token, parsed.data)
+            registerVote("null", ws.upgradeReq.session.token, parsed.data)
         }
         else
-          console.log("extraneous message from web client: `{0}`".format(message));
+          debug("extraneous message from web client: `{0}`".format(message));
+        // extend life of session
+        ws.upgradeReq.session.resetMaxAge();
+        ws.upgradeReq.session.save();
       });
       ws.on('close', function ()
       { wsClients.remove("null", ws);
@@ -328,9 +367,9 @@ wsServer.on('connection', function (ws) {
   }).catch(std_catch());
 });
 
-database.clearAll().then(function ()
+database.clearAll().then(function create_single_room()
 { return database.createRoom('null');
-}).then(function ()
+}).then(function start_server()
 { // START SERVER
   var port = process.env.PORT || settings['port'];
   console.log("starting server on port {0}".format(port));
