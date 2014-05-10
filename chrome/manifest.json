@@ -20,6 +20,5 @@
   [ { "matches": [ "http://www.pandora.com/", "http://www.pandora.com/*" ],
       "js": [ "controls.js" ]
     }
-
   ]
 }

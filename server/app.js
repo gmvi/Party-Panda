@@ -10,23 +10,29 @@
 var fs = require('fs'),
     ws = require('ws'),
     http = require('http'),
-    jade = require('jade'),
     redis = require('redis'),
     express = require('express'),
-    fakeredis = require('fakeredis');
+    fakeredis = require('fakeredis'),
+    es6_promise = require('es6-promise'),
+    connect_redis = require('connect-redis');
 
-var Promise = require('es6-promise').Promise,
-    PluginLoader = require('./PluginLoader.js'),
+var utils = require('./utils'),
+    Usersystems = require('./Usersystems.js'),
     DatabaseController = require('./DatabaseController.js');
 
 var Cookie = express.session.Cookie,
+    Promise = es6_promise.Promise,
     Session = express.session.Session,
-    MemoryStore = express.session.MemoryStore,
-    RedisStore = require('connect-redis')(express);
+    RedisStore = connect_redis(express),
+    MemoryStore = express.session.MemoryStore;
 
-//** VARIOUS SETUP AND UTILS
 
-var usersystems = new PluginLoader("usersystems", {id: "name"});
+//** SETTINGS AND SETUP
+
+var settings = utils.settings;
+var debug = utils.logger;
+
+var usersystems = new Usersystems({logger: debug});
 
 function std_catch(res)
 { return function (err)
@@ -35,40 +41,6 @@ function std_catch(res)
     if (res != undefined) res.send(500);
   }
 }
-
-
-//** STANDARD TYPE PROTOTYPE EXTENSIONS
-
-// string.format replaces `{i}` in a string with the ith argument, if it exists
-if (!String.prototype.format)
-{ String.prototype.format = function format()
-  { var args = arguments; // capture the arguments to format()
-    return this.replace(/{(\d+)}/g, function (match, number)
-    { if (typeof args[number] != 'undefined')
-        return args[number];
-      else return match;
-    });
-  };
-}
-
-
-//** SETTINGS
-
-var settings;
-try
-{ settings = require("./settings.json");
-}
-catch (err)
-{ console.info("Warning: using default settings file");
-  settings = require("./settings-default.json");
-}
-
-var debug;
-if (settings.debug) debug = function debug()
-{ console.log.apply(console, arguments);
-}
-else debug = function pass() {}
-
 
 //** DATABASE CONTROLLER
 var client;
@@ -118,14 +90,6 @@ var registerVote = function registerVote(room, unique, vote)
   });
 }
 
-
-//** TEMPLATES
-function render(template, variables)
-{ var path = __dirname + "/templates/{0}.jade".format(template);
-  return jade.renderFile(path, variables);
-}
-
-
 //** SERVER AND EXPRESS SETUP
 var app = new express();
 var server = http.createServer(app);
@@ -148,61 +112,51 @@ app.use('/bower',   express.static(__dirname + '/bower_components'));
 // TODO EVAL: write a middleware layer to load usersystem?
 
 //** APP ENDPOINTS
-app.get('/', function (req, res)
-{ database.getSetting("null", "usersystem").then(function (usersystem_name)
-  { usersystem = usersystems.get(usersystem_name);
-    if (usersystem.is_logged_in(req))
-    { database.getVote("null", req.session.token).then(function (vote)
-      { res.send(render("index", {"vote": vote}));
-      }).catch(std_catch(res));
+
+function roomMiddleware(req, res, next)
+{ database.roomExists(req.params.room).then(function(exists)
+  { if (!exists)
+    { res.send(utils.render("not_found", {"room": req.params.room}));
     }
     else
-    { var redirect = "http://{0}/login".format(req.headers.host);
-      usersystem.request_login(req, res, redirect);
+    { return database.getSetting(req.params.room, "usersystem")
+        .then(function (system_id)
+      { req.usersystem = usersystems.get(system_id);
+        next();
+      });
     }
   }).catch(std_catch(res));
+}
+
+app.get('/:room', roomMiddleware, function (req, res)
+{ var room_name = req.params.room;
+  var view_vars = {"room": room_name};
+  if (req.usersystem.is_logged_in(req))
+  { database.getVote(room, req.session.token)
+      .then(function (vote)
+    { view_vars["vote"] = vote;
+      res.send(utils.render("index", view_vars));
+    }).catch(std_catch(res));
+  }
+  else
+  { var redirect_url = "http://{0}/login".format(req.headers.host);
+    usersystem.request_login(req, res, redirect_url);
+  }
 });
-app.get('/login', function (req, res)
-{ database.getSetting("null", "usersystem").then(function (usersystem_name)
-  { var usersystem = usersystems.get(usersystem_name);
-    if (usersystem.accept_login(req))
-    { console.log("logging in");
-      res.redirect('/');
-    }
-    else
-    { console.log("failed login attempt");
-      res.redirect('/error?error=login');
-    }
-  }).catch(std_catch(res));
+// TODO: multiroom
+app.get('/:room/login', roomMiddleware, function (req, res)
+{ if (req.usersystem.accept_login(req))
+  { console.log("logging in");
+    res.redirect('/');
+  }
+  else
+  { console.log("failed login attempt");
+    res.redirect('/error?error=login');
+  }
 });
 app.get('/error', function (req, res)
 { res.send(500);
 });
-
-// HTTP API as well as websocket interface just in case
-app.post('/vote/down', function (req, res)
-{ database.getSetting("null", "usersystem").then(function (usersystem_name)
-  { var usersystem = usersystems.get(usersystem_name);
-    if (usersystem.is_logged_in(req))
-    { registerVote('null', req.session.token, 'down')
-        .then(res.send.bind(res, 200))
-        .catch(res.send.bind(res, 500));
-    }
-    else res.send(403);
-  }).catch(std_catch(res));
-});
-app.post('/vote/up', function (req, res)
-{ database.getSetting("null", "usersystem").then(function (usersystem_name)
-  { var usersystem = usersystems.get(usersystem_name);
-    if (usersystem.is_logged_in(req))
-    { registerVote('null', req.session.token, 'up')
-        .then(res.send.bind(res, 200))
-        .catch(res.send.bind(res, 500));
-    }
-    else res.send(403);
-  }).catch(std_catch(res));
-});
-
 
 //** WEBSOCKET LOGIC
 
@@ -217,14 +171,16 @@ var wsClients = new function Clients()
       rooms[room] = Object.create(null);
     return rooms[room];
   }
-  this.add = function add(room, ws)
-  { room = get(room);
-    // TODO EVAL: restrict by connection, or by session?
+  this.add = function add(ws)
+  { if (!ws.room) debug("ERROR, added ws has no room");
+    room = get(ws.room);
     room[ws.upgradeReq.headers['sec-websocket-key']] = ws;
   }
-  this.remove = function remove(room, ws)
-  { room = get(room);
-    delete room[ws.upgradeReq.headers['sec-websocket-key']];
+  this.remove = function remove(ws)
+  { if (ws.room)
+    { room = get(ws.room);
+      delete room[ws.upgradeReq.headers['sec-websocket-key']];
+    }
   }
   this.broadcast = function broadcast(room, message)
   { room = get(room);
@@ -233,91 +189,43 @@ var wsClients = new function Clients()
   }
 }();
 
-// parser function for websocket messages
-function parseMessage(message)
-{ var type;
-  var data;
-  var i = message.indexOf(":");
-  if (1 + i)
-  { type = message.substring(0, i);
-    data = message.substring(i+1);
-    try
-    { data = JSON.parse(data);
-    }
-    catch (err) { /* body is not valid JSON */ }
-  }
-  else
-  { type = "message";
-    data = message;
-  }
-  return { type: type,
-           data: data
-         };
-}
-
-// TODO: extension websocket heartbeats and timeout?
-// the redis database records the set of taken rooms
-// for scaling past one process, we will use redis's pub-sub system
-
-
-function is_from_extension(origin)
-{ if (origin == "http://www.pandora.com") return true;
-  if (settings.debug)
-  { var protocol = origin.split("://")[0];
-    return protocol == "chrome-extension";
-  }
-  return false;
-}
-
 wsServer.on('connection', function (ws)
-{ new Promise(function (resolve, reject)
+{ new Promise(function ws_session(resolve, reject)
   { // attatch session to socket
     parseCookie(ws.upgradeReq, null, function load_session(err)
     { if (err) return reject(err);
       var sessionID = ws.upgradeReq.signedCookies['express.sid'];
-      ws.upgradeReq.sessionID = sessionID;
-      ws.upgradeReq.sessionStore = sessionStore;
+      ws.sessionID = sessionID;
       sessionStore.get(sessionID, function attatch_session(err, session)
       { if (err) return reject(err);
+        var fakeReq = {}
+        fakeReq.sessionID = sessionID;
+        fakeReq.sessionStore = sessionStore;
         if (!session)
-        { ws.upgradeReq.session = new Session(ws.upgradeReq);
-          ws.upgradeReq.session.cookie = new Cookie();
+        { ws.session = new Session(fakeReq);
+          ws.session.cookie = new Cookie();
         }
         else
-        { // TODO: is this async in RedisStore?
-          sessionStore.createSession(ws.upgradeReq, session);
+        { ws.session = sessionStore.createSession(fakeReq, session);
         }
         // save the session
-        ws.upgradeReq.session.resetMaxAge();
-        ws.upgradeReq.session.save(function(err)
+        ws.session.resetMaxAge();
+        ws.session.save(function(err)
         { if (err) reject(err);
           else resolve();
         });
       });
     });
-  }).then(function ()
-  { // check if ws is from a logged-in user
-    var promise = database.getSetting("null", "usersystem")
-    return promise.then(function (usersystem_name)
-    { var usersystem = usersystems.get(usersystem_name);
-      return usersystem.is_logged_in(ws.upgradeReq);
-    });
-  }).then(function (logged_in)
-  { // throw out ws if not logged in
-    if (!logged_in)
-    { ws.send("error:\"not logged in\"");
-      ws.close();
-      return;
-    }
-    // proxy send to extend life of session
+  }).then(function ws_main()
+  { // proxy send to extend life of session
     var send = ws.send;
     ws.send = function proxied_send()
-    { ws.upgradeReq.session.resetMaxAge();
-      ws.upgradeReq.session.save();
+    { ws.session.resetMaxAge();
+      ws.session.save();
       send.apply(ws, arguments);
     }
     // categorize ws based on origin
-    var from_extension = is_from_extension(ws.upgradeReq.headers.origin);
+    var from_extension = utils.is_from_extension(ws.upgradeReq.headers.origin);
     if (from_extension)
     { console.log("got connection from extension");
       setUpExtensionWS(ws);
@@ -330,55 +238,115 @@ wsServer.on('connection', function (ws)
 });
 
 function setUpExtensionWS(ws)
-{ if (extensionWS) extensionWS.close();
-  extensionWS = ws;
-  ws.on('message', function (message)
-  { var orig_message = message;
-    message = parseMessage(message);
-    // TODO: handle additional communication
-    if (message.type == "change")
-    { // TODO: store song details to post on room webpages
-      database.resetVotes("null")
+{ ws.on('message', function (message)
+  { console.log("message from ex: "+message);
+    var orig_message = message;
+    message = utils.parseMessage(message);
+    if (message.type == "check") // data is room name
+    { var room_name = message.data;
+      database.roomExists(room_name).then(function(result)
+      { ws.send("check:"+JSON.stringify({ name: room_name,
+                                           check: result}));
+        // TODO: temporarily reserve room for this ws
+      }).catch(function (err)
+      { console.log(err.stack);
+        ws.send('error:"check"');
+      });
+    }
+    else if (message.type == "create") // data is room name
+    { var room_name = message.data;
+      if (ws.session.extension_room) // shouldn't happen, but might
+      { database.closeRoom(ws.session.extension_room);
+      }
+      // doesn't have to be serialized; the old and new room won't collide.
+      database.createRoom(room_name).then(function(was_created)
+      { ws.session.extension_room = room_name;
+        ws.send('create:'+JSON.stringify({ name: room_name,
+                                           status: was_created }));
+      }).catch(function(err)
+      { console.log(err.stack);
+        ws.send('error:"create"');
+      });
+    }
+    else if (message.type == "change")
+    { if (!ws.session.extension_room)
+      { console.log("invalid change message from extension, no room open");
+        ws.send('error:"not the owner of a room"');
+        return;
+      }
+      // TODO: store song details to post on room webpages
+      database.resetVotes(ws.session.extension_room)
         .then(function()
-      { wsClients.broadcast("null", orig_message);
+      { wsClients.broadcast(ws.session.extension_room, orig_message);
       }).catch(std_catch());
     }
-    else
+    else 
       console.log("extraneous message from extension: "
                    + orig_message);
     // extend life of session
-    ws.upgradeReq.session.resetMaxAge();
-    ws.upgradeReq.session.save();
+    ws.session.resetMaxAge();
+    ws.session.save();
+  });
+  ws.on('close', function ()
+  { if (ws.session.extension_room)
+    { database.closeRoom(ws.session.extension_room)
+        .catch(std_catch());
+      ws.session.extension_room = null;
+      ws.session.save();
+    }
   });
 }
 
 function setUpClientWS(ws)
 { ws.on('message', function (message)
-  { parsed = parseMessage(message);
+  { parsed = utils.parseMessage(message);
     if (parsed.type == "vote")
     { if (parsed.data !== "up" &&
           parsed.data !== "down")
         debug("bad vote from web client: {0}".format(parsed.data));
+      else if (ws.room)
+        registerVote(ws.room, ws.session.token, parsed.data)
+          .catch(std_catch());
       else
-        registerVote("null", ws.upgradeReq.session.token, parsed.data)
+        debug("web client didn't pick room first");
+    }
+    else if (parsed.type == "join")
+    { database.roomExists(parsed.data).then(function(exists)
+      { if (exists)
+        { ws.room = parsed.data;
+          return database.getSetting(ws.room, "usersystem")
+            .then(function (system_id)
+          { var usersystem = usersystems.get(system_id);
+            var logged_in = usersystem.is_logged_in(ws.upgradeReq);
+            if (logged_in)
+            { ws.send("join:true");
+            }
+            else
+            { ws.send('error:"login"');
+              ws.close();
+            }
+          });
+        }
+        else
+        { ws.send('error:"room"');
+          ws.close();
+        }
+      });
     }
     else
       debug("extraneous message from web client: `{0}`".format(message));
     // extend life of session
-    ws.upgradeReq.session.resetMaxAge();
-    ws.upgradeReq.session.save();
+    ws.session.resetMaxAge();
+    ws.session.save();
   });
   ws.on('close', function ()
-  { wsClients.remove("null", ws);
+  { wsClients.remove(ws);
   });
-  // store websocket for broadcasting to it.
-  wsClients.add("null", ws);
 }
 
 // START SERVER
-database.clearAll().then(function create_single_room()
-{ return database.createRoom('null');
-}).then(function start_server()
+// TODO: remove database.clearAll
+database.clearAll().then(function start_server()
 { var port = process.env.PORT || settings['port'];
   console.log("starting server on port {0}".format(port));
   server.listen(port);

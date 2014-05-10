@@ -1,5 +1,8 @@
+var exp = /^(https?:\/\/)?(www\.)?pandora\.com(\/|$)/;
+var debug_exp = /^chrome-extension:\/\/aennkehanjdkblidjldjafaeongapdpo\/test\.html$/
+
 function checkPandora(tabId, changeInfo, tab) {
-  if (/^(https?:\/\/)?(www\.)?pandora.com(\/)?/.test(tab.url)) {
+  if (exp.test(tab.url) || debug_exp.test(tab.url)) {
     chrome.pageAction.show(tabId);
   }
 };

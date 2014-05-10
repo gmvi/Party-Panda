@@ -2,7 +2,6 @@
   <head>
     <title>Test Page</title>
     <script src="controls.js"></script>
-    <script src="popup.js"></script>
     <script src="test.js"></script>
     <style>
     #playbackControl
@@ -13,55 +12,57 @@
     { width: 10px;
       height: 10px;
     }
-    .relative
-    { position: relative;
-      width: 700px;
+    #playerBar
+    { height:75px;
+      width: 100%;
     }
     .right
     { width: 50%;
-      position: absolute;
-      right: 0;
+      float: right;
     }
     .left
     { width: 50%;
-      position: absolute;
-      left: 0;
-    }
-    .relative .right div
-    { height: 25px;
+      float: left;
     }
     span.em
     { width: 1em;
+    }
+    .br
+    { height:5px;
     }
     </style>
   </head>
   <body>
     <h1>TEST PAGE FOR TESTING</h1>
     <p id="playbackControl">
-      <input type="radio" name="thumb" class="thumbDownButton">
-      <label for="thumbDownButton">down<label>
+      <input type="radio" name="thumb" id="down" class="thumbDownButton">
+      <label for="down">down<label>
       <span class="em"></span>
-      <input type="radio" name="thumb" class="thumbUpButton">
-      <label for="thumbUpButton">up</label>
-    </p>
-    <p>
-      host: <input id="host"/>
-      <button id="submit">link</button>
+      <input type="radio" name="thumb" id="up" class="thumbUpButton">
+      <label for="up">up</label>
     </p>
 
     <div id="playerBar" class="relative">
       <div class="nowplayinginput left">
-        <input class="enter-responsive playerBarSongInput">
-        <input class="enter-responsive playerBarArtistInput">
-        <input class="enter-responsive playerBarAlbumInput">
+        <input class="enter-responsive playerBarSongInput"></input>
+        <br/>
+        <input class="enter-responsive playerBarArtistInput"></input>
+        <br/>
+        <input class="enter-responsive playerBarAlbumInput"></input>
       </div>
       <div class="nowplaying right">
         <div class="info">
-          <div class="playerBarSong"></div>
-          <div class="playerBarArtist"></div>
-          <div class="playerBarAlbum"></div>
+          <div class="playerBarSong">&nbsp;</div>
+          <div class="br"></div>
+          <div class="playerBarArtist">&nbsp;</div>
+          <div class="br"></div>
+          <div class="playerBarAlbum">&nbsp;</div>
         </div>
       </div>
+    </div>
+
+    <p id="setView">
+      <input id="setViewInput"></input>
     </p>
   </body>
 </html>

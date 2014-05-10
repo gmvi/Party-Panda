@@ -44,23 +44,23 @@ module.exports = function DatabaseController(options)
   this.roomExists = roomExists;
   function checkRoomExists(room, promise_fn)
   { return roomExists(room).then(function(exists)
-    { if (!exists) throw new TypeError("Room does not exist");
+    { if (!exists) throw new Error("room does not exist");
       return new Promise(promise_fn);
     });
   }
   this.createRoom = function createRoom(room, settings)
   { return this.roomExists(room).then(function(exists)
-    { if (!room || exists) throw new TypeError("Can't create room");
+    { if (!room || exists) return false;
       return new Promise(function(resolve, reject)
       { client.sadd("rooms", room, function(err, result)
         { if (err) reject(err);
           else 
           { settings = settings || default_settings;
             if (settings != undefined)
-            { var fn = erronly(resolve, reject);
+            { var fn = erronly(resolve.bind(null, true), reject);
               client.hmset("room:"+room+".settings", settings, fn);
             }
-            else resolve();
+            else resolve(true);
           }
         });
       });
