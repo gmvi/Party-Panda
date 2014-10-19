@@ -1,40 +1,39 @@
-function parse(message)
-{ i = message.indexOf(":");
-  if (1 + i)
-  { message = message.split(':');
-    try
-    { message[1] = JSON.parse(message[1]);
-    }
-    catch (SyntaxError) { }
-    return message;
-  }
-  else
-    return ["message", message];
-}
+var socket = io.connect('/client');
+var track;
+var artist;
+var album;
 
-var socket = new WebSocket("ws://"+location.host);
+socket.on('connect', function() {
+  socket.emit('join', this.roomName);
+  socket.on('name', function(name) {
+    //alert("name: " + name);
+  });
+  socket.on('track', function(trackInfo) {
+    track.innerText = trackInfo.song;
+    artist.innerText = trackInfo.artist;
+    album.innerText = trackInfo.album;
+  });
+  socket.on('open', function() {
+    //alert('open');
+  });
+  socket.on('close', function() {
+    //alert('close!');
+  });
+  socket.on('error', function(error) {
+    console.error(error);
+  });
+});
 
 $(function()
-{ up = document.querySelector('#up');
-  upLabel = document.querySelector('label[for=up]');
-  down = document.querySelector('#down');
-  downLabel = document.querySelector('label[for=down]');
-  socket.onmessage = function(message)
-  { parsed = parse(message.data);
-    if (message.type == "update")
-    { up.checked = false;
-      down.checked = false;
-    }
-    else if (message.type == "reset")
-    { up.checked = false;
-      down.checked = false;
-    }
-    else console.log(message);
-  }
+{ var up = document.querySelector('#up');
+  var down = document.querySelector('#down');
+  track = document.getElementById('info-title');
+  artist = document.getElementById('info-artist');
+  album = document.getElementById('info-album');
   up.onclick = function()
-  { socket.send('vote:"up"');
+  { socket.emit('control', 'up');
   }
   down.onclick = function()
-  { socket.send('vote:"down"');
+  { socket.emit('control', 'down');
   }
 });

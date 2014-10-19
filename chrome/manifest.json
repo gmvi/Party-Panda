@@ -18,8 +18,7 @@
 
   "content_scripts":
   [ { "matches": [ "http://www.pandora.com/", "http://www.pandora.com/*" ],
-      "js": [ "controls.js" ]
+      "js": [ "socket.io.js", "controls.js" ]
     }
-
   ]
 }

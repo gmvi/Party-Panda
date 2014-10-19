@@ -1,9 +1,96 @@
+.page-header
+{ padding-bottom: 0px;
+  position: relative;
+}
+.party
+{ background-image: url('/assets/party_hat.png');
+  background-size: 100% auto;
+}
+.panda
+{ height: 120px;
+  width: 120px;
+  position: relative;
+  background-image: url('/assets/panda.jpg');
+  background-size: 100% auto;
+}
+
+.title
+{ display: inline-block;
+}
+
+@media (min-width: 320px) {
+  .panda {
+    display: none;
+  }
+  .party {
+    display: inline-block;
+    position: static;
+    height: 40px;
+    width: 30px;
+  }
+  .page-header
+  { width: 280px;
+    margin: 20px auto 10px;
+  }
+  .title
+  { font-size: 30pt;
+  }
+}
+
+@media (min-width: 600px) {
+  .panda {
+    display: inline-block;
+  }
+  .party {
+    display: inline-block;
+    position: absolute;
+    left: 39px;
+    top: -20px;
+    z-index: 1;
+    height: 60px;
+    width: 45px;
+  
+  }
+  .page-header
+  { width: 561px;
+    height: 126px;
+  }
+  .title
+  { font-size: 60pt;
+    margin-bottom: -28px;
+  }
+}
+
+.track-info
+{ margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.info-text
+{ height: 130px;
+  padding: 10px 10px;
+  display: inline-block;
+}
+.info-line
+{ max-width: 320px;
+  font-size: 18pt;
+  line-height: 32px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+.thumbs
+{
+}
+
 #up, #down
 { display:none;
 }
 input[type=radio] + label
-{ width: 300px;
-  height: 300px;
+{ width: 200px;
+  height: 200px;
   border: none;
   display: inline-block;
 }
@@ -25,37 +112,4 @@ label[for=up]
 #up:checked + label[for=up],
 #up + label[for=up] > .preload
 { background-image: url("/assets/thumbs_up_select.png");
-}
-.center
-{ margin-right: auto;
-  margin-left: auto;
-  width: 650px;
-}
-.header
-{ height: 140px;
-  margin-bottom: 50px;
-  position: relative;
-}
-#party
-{ height: 60px;
-  width: 45px;
-  position: absolute;
-  background-image: url('/assets/party_hat.png');
-  background-size: 100% auto;
-  left: 39px;
-  z-index: 1;
-}
-#panda
-{ height: 120px;
-  width: 120px;
-  position: absolute;
-  background-image: url('/assets/panda.jpg');
-  background-size: 100% auto;
-  bottom: 0px;
-}
-#title
-{ font-size: 70pt;
-  position: absolute;
-  left: 130px;
-  bottom: -20px;
 }

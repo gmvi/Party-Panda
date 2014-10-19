@@ -1,18 +1,39 @@
 doctype html
 html(lang = "en")
-    script(src="bower/jquery/jquery.min.js")
-    script(type='text/javascript' src="/scripts/index.js")
+  head
+    script(src='/socket.io/socket.io.js')
+    script(src='bower/jquery/jquery.min.js')
+    link(rel="stylesheet", href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css")
+    script(type='text/javascript' src='/scripts/index.js')
     title Party Panda
     link(href="/styles/index.css" rel="stylesheet")
-  body
-    div.header.center
-      span#party
-      span#panda
-      span#title Party Panda
-    div.center
-      input(id="down", type="radio", name="thumb", checked=(vote=="down"))
-      label(for="down")
-        span.preload
-      input(id="up", type="radio", name="thumb", checked=(vote=="up"))
-      label(for="up")
-        span.preload
+    if roomName
+      script(type='text/javascript')="this.roomName = "+roomName
+  body.container
+    .row
+      .col-md-8.col-md-offset-2
+        .page-header.center-block
+          .panda
+          span.party
+          span.title Party Panda
+    .row.track-info
+      .col.col-md-6.col-md-offset-3
+        img.img-thumbnail.pull-left(src="http://placekitten.com/120/120")
+        .info-text
+          .info-line
+            span#info-title &nbsp;
+          .info-line
+            | by 
+            span#info-artist &nbsp;
+          .info-line
+            | on 
+            span#info-album &nbsp;
+    .row
+      .col-md-6.col-md-offset-3
+        .thumbs
+          input(id="down", type="radio", name="thumb", checked=(vote=="down"))
+          label(for="down")
+            span.preload
+          input(id="up", type="radio", name="thumb", checked=(vote=="up"))
+          label(for="up")
+            span.preload

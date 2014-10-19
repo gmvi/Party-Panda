@@ -1,4 +1,4 @@
-websocket_onopen = null;
+
 document.addEventListener('DOMContentLoaded', function on_content_load()
 { submit = document.getElementById('submit');
   submit.removeEventListener('click', link);
