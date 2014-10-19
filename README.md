@@ -9,4 +9,4 @@ Party Panda
 4. Start a Pandora playlist.
 5. Click on the Party Hat in the url bar.
 6. Point the extension to the server (e.g. `localhost:5001`), and click the 'link' button.
-7. Have users log in at `http://[host]:5001/`. Currently the only supported login mechanism is `codeday.org`, which requires authentication tokens. Alternatively you can use the provided session-based user-uniqueness verification system, enabled by default, however you should be aware that malicious users can spam votes by manually deleting the session cookie.
+7. Have users vote at `http://[host]:5001/`. Currently there is no way to have them log in to properly verify vote uniqueness; votes are tracked by browser sessions.
