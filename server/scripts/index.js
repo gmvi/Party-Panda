@@ -4,11 +4,16 @@ var artist;
 var album;
 
 socket.on('connect', function() {
-  socket.emit('join', this.roomName);
+  // tell the server what room the client socket is from.
+  socket.emit('join', roomName);
+  socket.on('reconnect', function() {
+    socket.emit('join', roomName);
+  })
   socket.on('name', function(name) {
     //alert("name: " + name);
   });
   socket.on('track', function(trackInfo) {
+    trackInfo = trackInfo || {};
     track.innerText = trackInfo.song;
     artist.innerText = trackInfo.artist;
     album.innerText = trackInfo.album;

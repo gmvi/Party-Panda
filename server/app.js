@@ -61,13 +61,6 @@ catch (err)
   settings = require("./settings-default.json");
 }
 
-var debug;
-if (settings.debug) debug = function debug()
-{ console.log.apply(console, arguments);
-}
-else debug = function pass() {}
-
-
 //** DATABASE CONTROLLER
 var client;
 var sessionStore;
@@ -90,17 +83,18 @@ var database = new DatabaseController({client:           client,
 
 // TODO EVAL: after switch to redis's pub-sub
 var registerVote = function registerVote(room, unique, vote)
-{ return database.storeVote(room, unique, vote).then(function (votes)
+{ console.log(typeof room, room);
+  return database.storeVote(room, unique, vote).then(function (votes)
   { var total = votes.upvotes + votes.downvotes;
-    debug("votes:", votes);
+    console.log("votes:", votes);
     return database.getSettings(room, ['minVotes',
                                        'thresholdUp',
                                        'thresholdDown'])
       .then(function (room_settings)
-    { debug("min votes:", room_settings.minVotes);
+    { console.log("min votes:", room_settings.minVotes);
       if (total >= room_settings.minVotes)
       { var percent_up = votes.upvotes/total;
-        debug("percent_up:", percent_up);
+        console.log("percent_up:", percent_up);
         if (percent_up >= room_settings.thresholdUp)
           extensionWS.send('vote:"up"');
         else if (percent_up <= room_settings.thresholdDown)
@@ -112,6 +106,9 @@ var registerVote = function registerVote(room, unique, vote)
                 .format(unique, room, vote));
     console.log(err.stack || err);
     throw err;
+  }).then(function()
+  { console.log("success registering vote from {0} in room '{1}': {2}"
+                .format(unique, room, vote));
   });
 }
 
@@ -140,7 +137,7 @@ app.use('/bower',   express.static(__dirname + '/bower_components'));
 
 //** APP ENDPOINTS
 app.get('/', function (req, res) {
-  res.redirect('/null');
+  res.redirect('/asdf');
 });
 
 app.get('/login', function (req, res)
@@ -149,7 +146,7 @@ app.get('/login', function (req, res)
 });
 
 app.param('room', function(req, res, next, room)
-{ res.locals.room = room;
+{ res.locals.roomName = room;
   next();
 });
 
@@ -180,54 +177,48 @@ app.post('/api/vote', function (req, res)
     .catch(res.send.bind(res, 500));
 });
 
-//// the Rooms object
-
-function newControls(roomID, sessionID) {
-  var controls = Object.create(null);
-  controls.up = function()
-  { registerVote(roomID, sessionID, 'up');
-  }
-  controls.down = function()
-  { registerVote(roomID, sessionID, 'down');
-  }
-}
-
-// TODO
-var Rooms = new (function Rooms() {
-  var rooms = Object.create(null);
-  var hosts = Object.create(null);
+//// the Rooms object. This should be a separate module
+// TODO tie in with database. I want to be able to restart the server seamlessly.
+var Rooms = (function() {
+  var rooms = Object.create(null); // hash map
+  var hosts = Object.create(null); // map[string]
   function getRoom(id) {
     if (!(id in rooms)) {
       rooms[id] = Object.create(null);
     }
     return rooms[id];
   }
-  this.open = function(id, socket)
-  { hosts[id] = socket;
-    clientNsp.to(id).emit('open');
-  }
-  this.close = function(id)
-  { delete rooms[id];
-    delete hosts[id];
-    clientNsp.to(id).emit("close");
-  }
-  this.setName = function(id, name)
-  { getRoom(id).name = name;
-    clientNsp.to(id).emit('name', name);
-  }
-  this.updateTrack = function(id, track)
-  { getRoom(id).track = track;
-    console.log("updating track for ", id);
-    clientNsp.to(id).emit('track', track);
-  }
-  this.join = function(id, socket)
-  { socket.join(id);
-    socket.emit('name', getRoom(id).name);
-    socket.emit('track', getRoom(id).track);
-    return newControls(id, socket.sessionID);
-  }
-  this.leave = function(id, socket)
-  { socket.leave(id);
+  return {
+    open: function(id, socket)
+    { hosts[id] = socket;
+      clientNsp.to(id).emit('open');
+    },
+    close: function(id)
+    { delete rooms[id];
+      delete hosts[id];
+      clientNsp.to(id).emit("close");
+    },
+    setName: function(id, name)
+    { getRoom(id).name = name;
+      clientNsp.to(id).emit('name', name);
+    },
+    updateTrack: function(id, track)
+    { getRoom(id).track = track;
+      console.log("updating track for ", id);
+      clientNsp.to(id).emit('track', track);
+    },
+    join: function(roomID, socket)
+    { socket.join(roomID);
+      socket.emit('name', getRoom(roomID).name);
+      socket.emit('track', getRoom(roomID).track);
+      return {
+        up: registerVote.bind(null, roomID, socket.sessionID, 'up'),
+        down: registerVote.bind(null, roomID, socket.sessionID, 'down'),
+      }
+    },
+    leave: function(id, socket)
+    { socket.leave(id);
+    },
   }
 })();
 
@@ -240,7 +231,7 @@ hostNsp.on('connection', function(socket) {
   var currentRoomId = "";
   socket.on('new', function(id, name) {
     console.log('id', id);
-    console.log("current", currentRoomId);
+    console.log('current', currentRoomId);
     if (currentRoomId) {
       Rooms.close(currentRoomId);
     }
@@ -263,33 +254,35 @@ hostNsp.on('connection', function(socket) {
 
 // web interface
 clientNsp.on('connection', function(socket) {
-  new Promise(function(resolve, reject)
+  new Promise(function loadSessionID(resolve, reject)
   { parseCookie(socket.client.request, {}, function(){});
     loadSession(socket.client.request, {}, function() {
       socket.sessionID = socket.client.request.sessionID;
       resolve();
     });
   }).then(function()
-  { var roomId;
+  { var roomID;
     var controls;
     socket.on('join', function(id)
     { console.log("joining", id);
-      if (roomId)
-      { socket.emit('error', 'cannot join room twice');
+      if (roomID)
+      { socket.emit('err', 'cannot join room twice');
       } else
-      { roomId = id;
-        controls = Rooms.join(roomId, socket);
+      { roomID = id;
+        console.log(roomID)
+        console.log(typeof roomID, roomID);
+        controls = Rooms.join(roomID, socket);
       }
     });
     socket.on('control', function(control, arg)
-    { if (control in controls)
+    { if (typeof controls == "object" && control in controls)
       { controls[control](arg);
       } else
-      { socket.emit('error', 'control ' + control + ' does not exist');
+      { socket.emit('err', 'control ' + control + ' does not exist');
       }
     });
     socket.on('disconnect', function() {
-      Rooms.leave(roomId, socket);
+      Rooms.leave(roomID, socket);
     });
   });
 });
