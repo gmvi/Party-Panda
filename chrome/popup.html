@@ -1,19 +1,32 @@
-<!doctype html>
+<!doctype xhtml>
 <html>
   <head>
     <title>Popup</title>
     <script src="popup.js"></script>
     <style>
-      body {
-        overflow: hidden;
-        margin: 0px;
+      body
+      { overflow: hidden;
+        margin: 2px;
         padding: 0px;
         background: white;
+        width: 300px;
+        height: 200px;
+      }
+      .view
+      { display: none;
       }
     </style>
   </head>
   <body>
-    host: <input id="host"/>
-    <button id="submit">link</button>
+    <div class="view" id="create">
+      room: <input id="room_input"/>
+      <button id="create_room" disabled>create room</button>
+    </div>
+    <div class="view" id="status">
+      <button id="close_room">close room</button>
+    </div>
+    <div class="view" id="error">
+      ERROR!
+    </div>
   </body>
 </html>

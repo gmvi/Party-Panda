@@ -1,0 +1,21 @@
+doctype html
+html(lang = "en")
+  head
+    script(src='/socket.io/socket.io.js')
+    script(src='bower/jquery/jquery.min.js')
+    link(rel="stylesheet", href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css")
+    script(type='text/javascript' src='/scripts/index.js')
+    title Party Panda
+    link(href="/styles/index.css" rel="stylesheet")
+    if roomName
+      script(type='text/javascript')="this.roomName = '"+roomName+"'"
+  body.container
+    .row
+      .col-md-8.col-md-offset-2
+        .page-header.center-block
+          .panda
+          span.party
+          span.title Party Panda
+    .row
+      .col-md-8.col-md-offset-2
+        h1.text-centered Room Not Found

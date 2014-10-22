@@ -1,4 +1,5 @@
 var room;
+var host = "localhost:5001";
 
 /* CONTROLS */
 function thumbUp() {
@@ -44,7 +45,9 @@ var loopId;
 loopId = setInterval(function () {
   if (hasSongChanged()) {
     console.log('track change');
-    if (room) {socket.emit('track', getInfo());}
+    if (room) {
+      socket.emit('track', getInfo());
+    }
   }
 }, 100);
 

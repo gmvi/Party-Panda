@@ -10,12 +10,13 @@
 var fs = require('fs'),
     ws = require('ws'),
     http = require('http'),
-    jade = require('jade'),
     redis = require('redis'),
     express = require('express'),
-    fakeredis = require('fakeredis');
+    fakeredis = require('fakeredis'),
+    Promise = require('es6-promise').Promise,
+    connect_redis = require('connect-redis');
 
-var Promise = require('es6-promise').Promise,
+var utils = require('./utils'),
     DatabaseController = require('./DatabaseController.js');
 
 var ExpressSession = require('express-session'),
@@ -27,6 +28,8 @@ var ExpressSession = require('express-session'),
 var RedisStore = require('connect-redis')(ExpressSession);
 
 //** VARIOUS SETUP AND UTILS
+
+var settings = utils.settings;
 
 function std_catch(res)
 { return function (err)
@@ -291,4 +294,3 @@ clientNsp.on('connection', function(socket) {
 var port = process.env.PORT || settings['port'];
 console.log("starting server on port {0}".format(port));
 server.listen(port);
-
