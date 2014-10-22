@@ -13,7 +13,7 @@
 
   "page_action":
   { "default_icon": "party_hat.png",
-    "default_popup": "popup.html"
+    "default_popup": "locationbar-icon/popup.html"
   },
 
   "content_scripts":

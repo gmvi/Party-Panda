@@ -1,0 +1,31 @@
+<!doctype xhtml>
+<html>
+  <head>
+    <title>Popup</title>
+    <script src="popup.js"></script>
+    <link rel="stylesheet" type="text/css" href="popup.css"/>
+    <link rel="stylesheet" type="text/css" href="switch.css"/>
+  </head>
+  <body>
+    <div class="header">
+      <input/>
+      <div class="switch">
+        <input type="checkbox" name="switch" class="switch-checkbox" id="switch" />
+        <label class="switch-label" for="switch">
+          <span class="switch-inner"></span>
+          <span class="switch-switch"></span>
+        </label>
+      </div>
+    </div>
+    <div class="view" id="create">
+      room: <input id="room_input"/>
+      <button id="create_room" disabled>create room</button>
+    </div>
+    <div class="view" id="status">
+      <button id="close_room">close room</button>
+    </div>
+    <div class="view" id="error">
+      ERROR!
+    </div>
+  </body>
+</html>

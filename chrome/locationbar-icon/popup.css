@@ -1,0 +1,23 @@
+body
+{ overflow: hidden;
+  margin: 2px;
+  padding: 0px;
+  background: white;
+  width: 300px;
+  height: 200px;
+}
+.view
+{ display: none;
+}
+.header
+{ height: 20px;
+  margin-bottom: 10px;
+  position: relative;
+}
+.header .switch
+{ position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.cf:before,.cf:after{content:" ";display:table;}.cf:after{clear:both;}
