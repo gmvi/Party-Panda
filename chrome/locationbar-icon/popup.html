@@ -7,8 +7,8 @@
     <link rel="stylesheet" type="text/css" href="switch.css"/>
   </head>
   <body>
-    <div class="header">
-      <input/>
+    <div class="header cf">
+      <input id="title" class="subtle" placeholder="Room Title"/>
       <div class="switch">
         <input type="checkbox" name="switch" class="switch-checkbox" id="switch" />
         <label class="switch-label" for="switch">
@@ -18,14 +18,10 @@
       </div>
     </div>
     <div class="view" id="create">
-      room: <input id="room_input"/>
-      <button id="create_room" disabled>create room</button>
     </div>
-    <div class="view" id="status">
-      <button id="close_room">close room</button>
-    </div>
-    <div class="view" id="error">
-      ERROR!
+    <div class="footer">
+      Share this link to let people vote: 
+      <a href="" target="_blank">http://ppda.co/af94jd</a>
     </div>
   </body>
 </html>
