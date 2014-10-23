@@ -18,8 +18,8 @@
     width: 86px;
     margin-left: -30px;
     height: 20px;
-    -moz-transition: margin 0.3s ease-in 0s; -webkit-transition: margin 0.3s ease-in 0s;
-    -o-transition: margin 0.3s ease-in 0s; transition: margin 0.3s ease-in 0s;
+    -moz-transition: margin 0.2s ease-in 0s; -webkit-transition: margin 0.2s ease-in 0s;
+    -o-transition: margin 0.2s ease-in 0s; transition: margin 0.2s ease-in 0s;
 }
 .switch-inner:before, .switch-inner:after {
     display: block; float: left; width: 50%; height: 20px; padding: 0; line-height: 20px;
@@ -40,10 +40,10 @@
 .switch-switch {
     display: block; width: 30px; margin: 0px;
     background: #FFFFFF;
-    border: 2px solid #444444; border-radius: 5px;
+    border: inherit; border-radius: inherit;
     position: absolute; top: 0; bottom: 0; right: 30px;
-    -moz-transition: all 0.3s ease-in 0s; -webkit-transition: all 0.3s ease-in 0s;
-    -o-transition: all 0.3s ease-in 0s; transition: all 0.3s ease-in 0s; 
+    -moz-transition: all 0.2s ease-in 0s; -webkit-transition: all 0.2s ease-in 0s;
+    -o-transition: all 0.2s ease-in 0s; transition: all 0.2s ease-in 0s; 
     background-image: -moz-linear-gradient(center top, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%);
     background-image: -webkit-linear-gradient(center top, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%);
     background-image: -o-linear-gradient(center top, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 100%);
