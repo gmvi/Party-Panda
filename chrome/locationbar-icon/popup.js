@@ -1,67 +1,12 @@
 /*   IMPORTANT DOM ELEMENTS   */
-var room_input;
-var create_room;
-var close_room;
+var roomNameInput;
+var roomStateSwitch;
 
 /*   HANDLERS   */
-// check room
-function room_input_oninput(ev)
-{ create_room.disabled = true;
-  if (room_input.value == "") // if the user has cleared the room name
-  { create_room.textContent = "create room";
-    return;
-  }
-  // else send a check room request
-  create_room.textContent = "checking...";
-  port.postMessage({type:"check", name:room_input.value});
-}
+// user control events
 
-// create room
-function create_room_onclick(ev)
-{ send("create:"+room_input.value, function(result)
-  { if (result === true)
-    { handleRoomCreated();
-    }
-    else
-    { alert("creation failed");
-      handleRoomClosed();
-    }
-  });
-}
+//  port.postMessage({type:"check", name:room_input.value});
 
-// close room
-function close_room_onclick(ev)
-{ send("close:"), function(result)
-  { if (!result) /* handle error? */;
-    switchView('create');
-  }
-  close_room.textContent = "closing...";
-}
-
-/*   VIEWS   */
-function showView(which)
-{ var views = document.getElementsByClassName('view');
-  for (var i in views)
-  { if (views[i].id == which)
-      views[i].style.display = 'inherit';
-    else
-      views[i].style.display = 'none';
-  }
-}
-function switchView(which)
-{ showView(which);
-  switch (which)
-  { case ('create'):
-      break;
-    case ('status'):
-      break;
-    default:
-      console.log("which: "+ which);
-    case ('error'):
-      chrome.storage.local.set({'view': 'create'});
-      break;
-  }
-}
 
 /*   CONTROLERS.JS COMMUNICATION   */
 var port;
@@ -102,17 +47,36 @@ function content_onmessage(message)
 
 /*   MAIN   */
 document.addEventListener('DOMContentLoaded', function ()
-{ chrome.storage.local.get(['view'], function(items)
-  { switchView(items.view || 'create');
+{ // get important DOM elements
+  roomNameInput = document.getElementById('room-name');
+  roomStateSwitch = document.getElementById('room-switch');
+  chrome.storage.local.get(['room_state', 'room_name'], function(items)
+  { roomNameInput.value = items.room_name;
+    roomNameInput.alt = items.room_name;
+    roomNameInput.checked = items.room_state;
+    roomStateSwitch.checked = items.room_state;
+    // give the event loop a chance to set the switch state before css transitions are turned on
+    setTimeout(function() {
+      roomStateSwitch.parentElement.classList.add("switch-slide");
+    }, 50);
   });
-  // get important DOM elements
-  room_input = document.getElementById('room_input');
-  create_room = document.getElementById('create_room');
-  close_room = document.getElementById('close_room');
-  // DOM element manipulations
-  create_room.style.width = window.getComputedStyle(create_room).width;
   // event listeners
-  room_input.addEventListener('input', room_input_oninput);
-  create_room.addEventListener('click', create_room_onclick);
-  close_room.addEventListener('click', close_room_onclick);
+  roomNameInput.addEventListener('input', function(e) {
+    var value = e.target.value || "";
+    chrome.storage.local.set({'room_name': value});
+    roomNameInput.alt = value;
+    // call a debounced 'send room name' function
+  });
+  roomNameInput.addEventListener('focus', function(e) {
+    setTimeout(function(){e.target.select();}, 0);
+  });
+  roomNameInput.addEventListener('keypress', function(e) {
+    if (e.keyCode == 13) {
+      roomNameInput.blur();
+    }
+  });
+  roomStateSwitch.addEventListener('click', function(e) {
+    chrome.storage.local.set({'room_state': e.target.checked});
+    // call a less debounced 'send open status' function
+  });
 });
