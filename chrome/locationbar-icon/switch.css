@@ -23,8 +23,8 @@
 }
 .switch-slide .switch-inner,
 .switch-slide .switch-nob {
-    -moz-transition: margin 0.3s ease-in 0s; -webkit-transition: margin 0.3s ease-in 0s;
-    -o-transition: margin 0.3s ease-in 0s; transition: margin 0.3s ease-in 0s;
+    -moz-transition: margin 0.2s ease-in 0s; -webkit-transition: margin 0.2s ease-in 0s;
+    -o-transition: margin 0.2s ease-in 0s; transition: margin 0.2s ease-in 0s;
 }
 .switch-inner:before, .switch-inner:after {
     display: block; float: left; width: 50%; height: 20px; padding: 0; line-height: 20px;

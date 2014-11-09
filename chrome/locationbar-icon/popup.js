@@ -2,12 +2,6 @@
 var roomNameInput;
 var roomStateSwitch;
 
-/*   HANDLERS   */
-// user control events
-
-//  port.postMessage({type:"check", name:room_input.value});
-
-
 /*   CONTROLERS.JS COMMUNICATION   */
 var port;
 query = { currentWindow: true, active: true };
@@ -18,30 +12,9 @@ chrome.tabs.query(query, function (tabs)
 });
 
 function content_onmessage(message)
-{ if (message.type == "check")
-  { if (message.name == room.textContent)
-    { if (message.exists === false)
-      { create_room.textContent = "create room";
-        create_room.disabled = false;
-      }
-      else
-      { create_room.textContent = "unavailable";
-      }
-    } // else discard message
-  }
-  else if (message.type == "create")
-  { if (message.status)
-    { title.textContent = message.name;
-      switchView('create');
-    }
-    else
-    { console.log('error! create room failed');
-      switchView('error');
-    }
-  }
-  else if (message.type == "error")
-  { console.log(message.data);
-    switchView('error');
+{ switch (message.type) {
+    case 'track_change':
+      document.getElementById('settings').innerHTML = message.song;
   }
 }
 
@@ -62,21 +35,26 @@ document.addEventListener('DOMContentLoaded', function ()
   });
   // event listeners
   roomNameInput.addEventListener('input', function(e) {
-    var value = e.target.value || "";
-    chrome.storage.local.set({'room_name': value});
-    roomNameInput.alt = value;
-    // call a debounced 'send room name' function
+    var name = e.target.value || "";
+    chrome.storage.local.set({'room_name': name});
+    roomNameInput.alt = name;
+    // TODO: should be debounced to improve performance
+    port.postMessage({type: 'room_name', name: name});
   });
-  roomNameInput.addEventListener('focus', function(e) {
-    setTimeout(function(){e.target.select();}, 0);
-  });
+  // // Need to protect against select attemtps turning into drag attempts.
+  // // 
+  // roomNameInput.addEventListener('focus', function(e) {
+  //   setTimeout(function(){e.target.select();}, 0);
+  // });
   roomNameInput.addEventListener('keypress', function(e) {
     if (e.keyCode == 13) {
       roomNameInput.blur();
     }
   });
   roomStateSwitch.addEventListener('click', function(e) {
-    chrome.storage.local.set({'room_state': e.target.checked});
-    // call a less debounced 'send open status' function
+    var is_open = e.target.checked;
+    chrome.storage.local.set({'room_state': is_open});
+    // TODO: should be debounced to improve performance
+    port.postMessage({type: 'room_state', open: is_open});
   });
 });

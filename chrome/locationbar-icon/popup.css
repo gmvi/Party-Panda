@@ -1,3 +1,10 @@
+html {
+  box-sizing: border-box;
+}
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
 body
 { overflow: hidden;
   margin: 2px;
@@ -53,20 +60,20 @@ a:hover, a:active, a:focus
 
 .header
 { height: 24px;
-  margin-bottom: 10px;
+  margin-bottom: 11px;
   position: relative;
 }
 .title
 { width: 140px;
+  height: 24px;
   display: block;
   text-align: center;
   position: relative;
   z-index: 1;
-  line-height: 18px;
   margin: 0 auto;
   text-overflow: ellipsis;
-  -moz-transition: width 150ms; -webkit-transition: width 150ms;
-  -o-transition: width 150ms; transition: width 150ms;
+  -moz-transition: width .3s; -webkit-transition: width .3s;
+  -o-transition: width .3s; transition: width .3s;
 }
 .title:focus
 { text-overflow: none;
@@ -78,12 +85,26 @@ a:hover, a:active, a:focus
   top: 0;
 }
 
-.view
-{ display: none;
+.settings
+{ height: 120px;
+}
+
+.placeholder
+{ margin: 0 auto;
+  width: 200px;
+  height: 100px;
+  font-size: 18px;
+  background-color: #ddd;
+  border: 2px dashed black;
+  text-align: center;
+  position: relative;
+  top: 10px;
+  padding-top: 40px;
 }
 
 .footer
-{ position: absolute;
+{ margin-top: 11px;
+  position: absolute;
   bottom: 0;
   width: 100%;
   text-align: center;
